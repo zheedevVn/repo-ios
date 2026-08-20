@@ -1,0 +1,6 @@
+#!/bin/sh
+if [ "$1" = "configure" ]; then
+    uicache -a -r 2>/dev/null || uicache -a 2>/dev/null
+    sbreload 2>/dev/null || killall -9 SpringBoard 2>/dev/null
+fi
+exit 0

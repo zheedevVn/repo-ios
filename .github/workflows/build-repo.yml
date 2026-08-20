@@ -29,6 +29,7 @@ jobs:
       - name: Build Application DEB
         run: |
           cd app
+          chmod +x postinst || true
           make package FINALPACKAGE=1
           mkdir -p ../repo/debs
           cp -f packages/*.deb ../repo/debs/
@@ -37,7 +38,6 @@ jobs:
         run: |
           cd repo
           dpkg-scanpackages -m debs /dev/null > Packages
-          cp -f Packages Packages_copy
           gzip -c -9 Packages > Packages.gz
           bzip2 -c -9 Packages > Packages.bz2
           xz -c -9 Packages > Packages.xz
