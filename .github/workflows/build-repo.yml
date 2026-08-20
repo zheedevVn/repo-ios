@@ -17,7 +17,7 @@ jobs:
 
       - name: Install Build Tools
         run: |
-          brew install ldid dpkg
+          brew install ldid dpkg xz zstd
 
       - name: Install Theos and iOS SDK
         run: |
@@ -31,14 +31,17 @@ jobs:
           cd app
           make package FINALPACKAGE=1
           mkdir -p ../repo/debs
-          cp -r packages/*.deb ../repo/debs/
+          cp -f packages/*.deb ../repo/debs/
 
       - name: Generate APT Packages Index and Release
         run: |
           cd repo
-          dpkg-scanpackages debs /dev/null > Packages
+          dpkg-scanpackages -m debs /dev/null > Packages
+          cp -f Packages Packages_copy
           gzip -c -9 Packages > Packages.gz
           bzip2 -c -9 Packages > Packages.bz2
+          xz -c -9 Packages > Packages.xz
+          zstd -c -19 Packages > Packages.zst
           cp ../Release ./
           cp ../index.html ./
 
