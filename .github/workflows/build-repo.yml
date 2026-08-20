@@ -30,18 +30,21 @@ jobs:
         run: |
           cd app
           make package FINALPACKAGE=1
-          mkdir -p ../debs
-          cp -r packages/*.deb ../debs/
+          mkdir -p ../repo/debs
+          cp -r packages/*.deb ../repo/debs/
 
-      - name: Generate APT Packages Index
+      - name: Generate APT Packages Index and Release
         run: |
+          cd repo
           dpkg-scanpackages debs /dev/null > Packages
           gzip -c -9 Packages > Packages.gz
           bzip2 -c -9 Packages > Packages.bz2
+          cp ../Release ./
+          cp ../index.html ./
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: ./repo
           publish_branch: gh-pages
