@@ -15,6 +15,10 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install Build Tools
+        run: |
+          brew install ldid dpkg
+
       - name: Install Theos and iOS SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
@@ -31,7 +35,6 @@ jobs:
 
       - name: Generate APT Packages Index
         run: |
-          brew install dpkg
           dpkg-scanpackages debs /dev/null > Packages
           gzip -c -9 Packages > Packages.gz
           bzip2 -c -9 Packages > Packages.bz2
