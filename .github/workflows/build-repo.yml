@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -12,15 +15,16 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Theos
+      - name: Install Theos and iOS SDK
         run: |
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          git clone https://github.com/theos/sdks.git $HOME/theos/sdks
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
 
       - name: Build Application DEB
         run: |
           cd app
-          make clean package FINALPACKAGE=1
+          make package FINALPACKAGE=1
           mkdir -p ../debs
           cp -r packages/*.deb ../debs/
 
