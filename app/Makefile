@@ -9,6 +9,6 @@ APPLICATION_NAME = VideoApp
 VideoApp_FILES = main.m AppDelegate.m ViewController.m
 VideoApp_FRAMEWORKS = UIKit WebKit CoreGraphics
 VideoApp_CFLAGS = -fobjc-arc
-VideoApp_CODESIGN_FLAGS = -S
+VideoApp_CODESIGN_FLAGS = -Sentitlements.plist
 
 include $(THEOS_MAKE_PATH)/application.mk
