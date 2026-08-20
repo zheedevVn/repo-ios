@@ -1,10 +1,10 @@
-Package: com.zheedev.videoapp
+Package: com.yourname.videoapp
 Name: Ứng Dụng Xem Video
 Depends: 
 Version: 1.0.0
-Architecture: iphoneos-arm
+Architecture: iphoneos-arm64
 Description: Ứng dụng xem video trực tuyến chất lượng cao, tích hợp trình phát WebKit mượt mà.
-Maintainer: Tên Của Bạn <email@domain.com>
-Author: ZheeDevTool
+Maintainer: ZheeDev <email@domain.com>
+Author: ZheeDev
 Section: Multimedia
 Tag: purpose::extension, role::developer
