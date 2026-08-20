@@ -1,0 +1,39 @@
+name: Build App and Update Repo
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Theos
+        run: |
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
+          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
+
+      - name: Build Application DEB
+        run: |
+          cd app
+          make clean package FINALPACKAGE=1
+          mkdir -p ../debs
+          cp -r packages/*.deb ../debs/
+
+      - name: Generate APT Packages Index
+        run: |
+          brew install dpkg
+          dpkg-scanpackages debs /dev/null > Packages
+          gzip -c -9 Packages > Packages.gz
+          bzip2 -c -9 Packages > Packages.bz2
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./
+          publish_branch: gh-pages
