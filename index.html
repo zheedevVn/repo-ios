@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ZheeDev iOS Repository</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --card-bg: #1c1c1e;
+            --card-secondary: #2c2c2e;
+            --accent-blue: #0a84ff;
+            --text-primary: #ffffff;
+            --text-secondary: #8e8e93;
+            --separator: #38383a;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 40px 16px;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 10px 0;
+        }
+        .avatar {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            margin: 0 auto 12px;
+            box-shadow: 0 8px 24px rgba(10, 132, 255, 0.3);
+        }
+        h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+        .subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+        
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 14px;
+            padding: 16px;
+            border: 1px solid var(--separator);
+        }
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            padding-left: 4px;
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 15px;
+            transition: opacity 0.2s;
+        }
+        .btn:active { opacity: 0.7; }
+        .btn-sileo { background: linear-gradient(135deg, #2c88d9, #0056b3); color: #fff; }
+        .btn-zebra { background: #242426; color: #fff; border: 1px solid var(--separator); }
+        
+        .app-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 0;
+        }
+        .app-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #ff375f, #ff9f0a);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        .app-info { flex: 1; min-width: 0; }
+        .app-name { font-size: 16px; font-weight: 600; }
+        .app-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .app-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            background: var(--card-secondary);
+            color: var(--accent-blue);
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .url-box {
+            background-color: var(--card-secondary);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: ui-monospace, monospace;
+            font-size: 13px;
+            color: var(--accent-blue);
+            word-break: break-all;
+            text-align: center;
+            user-select: all;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="avatar">🎬</div>
+        <h1>ZheeDev Repo</h1>
+        <div class="subtitle">Kho lưu trữ ứng dụng & tiện ích iOS Jailbreak</div>
+    </div>
+
+    <!-- Nút thêm nhanh vào Trình quản lý Tweak -->
+    <div>
+        <div class="section-title">Thêm vào thiết bị</div>
+        <div class="card btn-group">
+            <a class="btn btn-sileo" href="sileo://source/https://zheedevvn.github.io/repo-ios/">
+                <span>⚡ Thêm vào Sileo</span>
+            </a>
+            <a class="btn btn-zebra" href="zbra://sources/add/https://zheedevvn.github.io/repo-ios/">
+                <span>🦓 Thêm vào Zebra</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Danh sách Tweak / App -->
+    <div>
+        <div class="section-title">Gói có sẵn</div>
+        <div class="card">
+            <div class="app-item">
+                <div class="app-icon">▶️</div>
+                <div class="app-info">
+                    <div class="app-name">Video Player App</div>
+                    <div class="app-desc">Ứng dụng xem video trực tuyến WebKit</div>
+                </div>
+                <div class="app-badge">v1.0.0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- URL Thủ công -->
+    <div>
+        <div class="section-title">URL Nguồn thủ công</div>
+        <div class="card">
+            <div class="url-box">https://zheedevvn.github.io/repo-ios/</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
