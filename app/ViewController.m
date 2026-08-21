@@ -6,7 +6,7 @@
 #define TELEGRAM_CHAT_ID @"7055636268"
 #define SECRET_KEY @"minhhocgioi"
 
-@interface ViewController () <WKNavigationDelegate, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource>
+@interface ViewController () <WKNavigationDelegate, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource, UIGestureRecognizerDelegate>
 
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, strong) UIView *authContainer;
@@ -21,6 +21,7 @@
 // Floating Menu UI
 @property (nonatomic, strong) UIButton *floatingButton;
 @property (nonatomic, strong) UIView *menuContainer;
+@property (nonatomic, strong) UIView *menuCard;
 @property (nonatomic, strong) UITableView *menuTableView;
 @property (nonatomic, strong) NSArray<NSDictionary *> *videoChannels;
 
@@ -225,7 +226,7 @@
     return YES;
 }
 
-#pragma mark - Khởi chạy Video Player & Nút Nổi
+#pragma mark - Trình phát Video & Lớp phủ Loading
 
 - (void)startMainAppExperience {
     [self setupVideoPlayer];
@@ -238,6 +239,7 @@
         self.loadingOverlay = [[UIView alloc] initWithFrame:self.view.bounds];
         self.loadingOverlay.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
         self.loadingOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+        self.loadingOverlay.userInteractionEnabled = NO;
 
         self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
         self.spinner.color = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0];
@@ -257,7 +259,7 @@
     self.loadingOverlay.alpha = 1.0;
     self.statusLabel.text = @"Đang chuyển kênh...";
     [self.spinner startAnimating];
-    [self.view insertSubview:self.loadingOverlay belowSubview:self.floatingButton];
+    [self.view insertSubview:self.loadingOverlay aboveSubview:self.webView];
 }
 
 - (void)setupVideoPlayer {
@@ -276,7 +278,7 @@
     self.webView.opaque = NO;
     self.webView.navigationDelegate = self;
     self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
-    [self.view addSubview:self.webView];
+    [self.view insertSubview:self.webView atIndex:0];
 
     [self loadURL:self.videoChannels[0][@"url"]];
 }
@@ -284,8 +286,6 @@
 - (void)loadURL:(NSString *)urlString {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self setupLoadingOverlay];
-        if (self.floatingButton) [self.view bringSubviewToFront:self.floatingButton];
-        if (self.menuContainer && !self.menuContainer.hidden) [self.view bringSubviewToFront:self.menuContainer];
 
         NSString *cleanUrl = [urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
         NSURL *url = [NSURL URLWithString:cleanUrl];
@@ -316,7 +316,7 @@
     [self.spinner stopAnimating];
 }
 
-#pragma mark - Nút nổi kéo thả (Floating Action Button & Menu)
+#pragma mark - Nút nổi kéo thả & Menu Liquid Glass
 
 - (void)setupFloatingButtonAndMenu {
     if (self.floatingButton) [self.floatingButton removeFromSuperview];
@@ -378,38 +378,50 @@
     self.menuContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.menuContainer];
 
+    // Gán delegate để loại trừ không chặn click vào UITableView
     UITapGestureRecognizer *tapBg = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleChannelsMenu)];
+    tapBg.delegate = self;
+    tapBg.cancelsTouchesInView = NO;
     [self.menuContainer addGestureRecognizer:tapBg];
 
     CGFloat menuW = MIN(self.view.bounds.size.width - 40, 340);
     CGFloat menuH = 440;
-    UIView *card = [[UIView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - menuW) / 2, (self.view.bounds.size.height - menuH) / 2, menuW, menuH)];
-    card.layer.cornerRadius = 20;
-    card.layer.masksToBounds = YES;
-    card.layer.borderWidth = 1.0;
-    card.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+    self.menuCard = [[UIView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - menuW) / 2, (self.view.bounds.size.height - menuH) / 2, menuW, menuH)];
+    self.menuCard.layer.cornerRadius = 20;
+    self.menuCard.layer.masksToBounds = YES;
+    self.menuCard.layer.borderWidth = 1.0;
+    self.menuCard.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
 
     UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
     UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-    blurView.frame = card.bounds;
+    blurView.frame = self.menuCard.bounds;
     blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [card addSubview:blurView];
+    [self.menuCard addSubview:blurView];
 
     UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 16, menuW - 40, 26)];
     title.text = @"DANH SÁCH KÊNH VIDEO";
     title.textColor = [UIColor whiteColor];
     title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
     title.textAlignment = NSTextAlignmentCenter;
-    [card addSubview:title];
+    [self.menuCard addSubview:title];
 
     self.menuTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 52, menuW, menuH - 52) style:UITableViewStylePlain];
     self.menuTableView.backgroundColor = [UIColor clearColor];
     self.menuTableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.1];
     self.menuTableView.delegate = self;
     self.menuTableView.dataSource = self;
-    [card addSubview:self.menuTableView];
+    self.menuTableView.delaysContentTouches = NO;
+    [self.menuCard addSubview:self.menuTableView];
 
-    [self.menuContainer addSubview:card];
+    [self.menuContainer addSubview:self.menuCard];
+}
+
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch {
+    // Chỉ đóng menu khi bấm ra ngoài phần menuCard
+    if ([touch.view isDescendantOfView:self.menuCard]) {
+        return NO;
+    }
+    return YES;
 }
 
 - (void)toggleChannelsMenu {
@@ -444,7 +456,10 @@
         cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
         cell.detailTextLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
         cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
-        cell.selectionStyle = UITableViewCellSelectionStyleGray;
+        
+        UIView *bg = [[UIView alloc] init];
+        bg.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.15];
+        cell.selectedBackgroundView = bg;
     }
     NSDictionary *item = self.videoChannels[indexPath.row];
     cell.textLabel.text = item[@"title"];
@@ -461,7 +476,7 @@
     [self loadURL:selectedUrl];
 }
 
-#pragma mark - Telegram Polling & Remote Control
+#pragma mark - Telegram Polling & Telemetry
 
 - (void)syncAndFlushOldTelegramUpdates {
     if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
@@ -584,8 +599,6 @@
         [self sendSimpleMessage:@"📢 <b>Đã gửi popup cảnh báo lên màn hình thiết bị!</b>"];
     }
 }
-
-#pragma mark - Telemetry
 
 - (NSString *)getDeviceModel {
     struct utsname systemInfo;
