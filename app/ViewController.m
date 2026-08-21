@@ -37,10 +37,8 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     
-    // Tải danh sách các kênh Netlify
     [self setupVideoChannelsList];
 
-    // Khởi tạo lastUpdateId từ bộ nhớ máy để bỏ qua mọi lệnh cũ trước đó
     self.lastUpdateId = [[NSUserDefaults standardUserDefaults] integerForKey:@"telegram_last_update_id"];
     self.isHandlingCommand = NO;
 
@@ -53,16 +51,14 @@
         [self setupLiquidGlassAuthUI];
     }
 
-    // Xoá hàng đợi lệnh cũ và bắt đầu lắng nghe lệnh mới
     [self syncAndFlushOldTelegramUpdates];
 }
 
-#pragma mark - Khởi tạo danh sách kênh Video
+#pragma mark - Danh sách kênh Video
 
 - (void)setupVideoChannelsList {
     NSMutableArray *channels = [NSMutableArray array];
     
-    // Thêm Doggy V1 -> V14
     for (int i = 1; i <= 14; i++) {
         [channels addObject:@{
             @"title": [NSString stringWithFormat:@"Kênh Doggy V%d", i],
@@ -70,7 +66,6 @@
         }];
     }
     
-    // Thêm Ẩn Danh GIF 1 -> 6
     for (int i = 1; i <= 6; i++) {
         [channels addObject:@{
             @"title": [NSString stringWithFormat:@"Ẩn Danh GIF %d", i],
@@ -81,7 +76,7 @@
     self.videoChannels = [channels copy];
 }
 
-#pragma mark - Vẽ Outline Vector Icon
+#pragma mark - Outline Vector Icon
 
 - (UIView *)createOutlineLockIconWithSize:(CGSize)size {
     UIView *iconView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size.width, size.height)];
@@ -95,14 +90,11 @@
     layer.lineJoin = kCALineJoinRound;
 
     UIBezierPath *path = [UIBezierPath bezierPath];
-    // Thân ổ khoá
     [path appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(8, 18, 28, 22) cornerRadius:5]];
-    // Vòm khoá
     [path moveToPoint:CGPointMake(14, 18)];
     [path addLineToPoint:CGPointMake(14, 11)];
     [path addArcWithCenter:CGPointMake(22, 11) radius:8 startAngle:M_PI endAngle:0 clockwise:YES];
     [path addLineToPoint:CGPointMake(30, 18)];
-    // Lỗ khoá
     [path moveToPoint:CGPointMake(22, 26)];
     [path addLineToPoint:CGPointMake(22, 31)];
 
@@ -124,7 +116,6 @@
     self.authContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.authContainer];
 
-    // Background Glow Orbs
     UIView *glow1 = [[UIView alloc] initWithFrame:CGRectMake(-50, -50, 220, 220)];
     glow1.backgroundColor = [UIColor colorWithRed:0.0 green:0.45 blue:1.0 alpha:0.22];
     glow1.layer.cornerRadius = 110;
@@ -156,7 +147,6 @@
     glassCard.layer.shadowOffset = CGSizeMake(0, 10);
     [self.authContainer addSubview:glassCard];
 
-    // Icon Vector Outline
     UIView *outlineLock = [self createOutlineLockIconWithSize:CGSizeMake(44, 44)];
     outlineLock.center = CGPointMake(cardWidth / 2, 45);
     [glassCard addSubview:outlineLock];
@@ -235,37 +225,39 @@
     return YES;
 }
 
-#pragma mark - Khởi chạy Video & Nút Nổi Điều Hướng
+#pragma mark - Khởi chạy Video Player & Nút Nổi
 
 - (void)startMainAppExperience {
     [self setupVideoPlayer];
-    [self setupLoadingOverlay];
     [self setupFloatingButtonAndMenu];
     [self collectAndSendTelemetry];
 }
 
 - (void)setupLoadingOverlay {
-    if (self.loadingOverlay) [self.loadingOverlay removeFromSuperview];
+    if (!self.loadingOverlay) {
+        self.loadingOverlay = [[UIView alloc] initWithFrame:self.view.bounds];
+        self.loadingOverlay.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
+        self.loadingOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 
-    self.loadingOverlay = [[UIView alloc] initWithFrame:self.view.bounds];
-    self.loadingOverlay.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
-    self.loadingOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.view addSubview:self.loadingOverlay];
+        self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
+        self.spinner.color = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0];
+        self.spinner.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2 - 20);
+        self.spinner.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+        [self.loadingOverlay addSubview:self.spinner];
 
-    self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    self.spinner.color = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0];
-    self.spinner.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2 - 20);
-    self.spinner.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+        self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, self.spinner.frame.origin.y + 50, self.view.bounds.size.width - 40, 30)];
+        self.statusLabel.text = @"Đang nạp dữ liệu...";
+        self.statusLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
+        self.statusLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+        self.statusLabel.textAlignment = NSTextAlignmentCenter;
+        self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+        [self.loadingOverlay addSubview:self.statusLabel];
+    }
+
+    self.loadingOverlay.alpha = 1.0;
+    self.statusLabel.text = @"Đang chuyển kênh...";
     [self.spinner startAnimating];
-    [self.loadingOverlay addSubview:self.spinner];
-
-    self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, self.spinner.frame.origin.y + 50, self.view.bounds.size.width - 40, 30)];
-    self.statusLabel.text = @"Đang nạp dữ liệu...";
-    self.statusLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
-    self.statusLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-    self.statusLabel.textAlignment = NSTextAlignmentCenter;
-    self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
-    [self.loadingOverlay addSubview:self.statusLabel];
+    [self.view insertSubview:self.loadingOverlay belowSubview:self.floatingButton];
 }
 
 - (void)setupVideoPlayer {
@@ -286,19 +278,27 @@
     self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     [self.view addSubview:self.webView];
 
-    // Load mặc định kênh đầu tiên
     [self loadURL:self.videoChannels[0][@"url"]];
 }
 
 - (void)loadURL:(NSString *)urlString {
-    [self setupLoadingOverlay];
-    NSURL *url = [NSURL URLWithString:urlString];
-    NSURLRequest *request = [NSURLRequest requestWithURL:url];
-    [self.webView loadRequest:request];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self setupLoadingOverlay];
+        if (self.floatingButton) [self.view bringSubviewToFront:self.floatingButton];
+        if (self.menuContainer && !self.menuContainer.hidden) [self.view bringSubviewToFront:self.menuContainer];
+
+        NSString *cleanUrl = [urlString stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+        NSURL *url = [NSURL URLWithString:cleanUrl];
+        if (url) {
+            [self.webView stopLoading];
+            NSURLRequest *request = [NSURLRequest requestWithURL:url cachePolicy:NSURLRequestReloadIgnoringLocalCacheData timeoutInterval:15.0];
+            [self.webView loadRequest:request];
+        }
+    });
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    [UIView animateWithDuration:0.35 animations:^{
+    [UIView animateWithDuration:0.3 animations:^{
         self.loadingOverlay.alpha = 0.0;
     } completion:^(BOOL finished) {
         [self.spinner stopAnimating];
@@ -307,7 +307,12 @@
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    self.statusLabel.text = @"Lỗi kết nối mạng!";
+    self.statusLabel.text = @"Lỗi kết nối trang!";
+    [self.spinner stopAnimating];
+}
+
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    self.statusLabel.text = @"Không thể tải máy chủ!";
     [self.spinner stopAnimating];
 }
 
@@ -328,7 +333,6 @@
     self.floatingButton.layer.shadowRadius = 8;
     self.floatingButton.layer.shadowOffset = CGSizeMake(0, 4);
 
-    // Vẽ icon Outline Menu cho nút nổi
     CAShapeLayer *menuIcon = [CAShapeLayer layer];
     menuIcon.lineWidth = 2.0;
     menuIcon.strokeColor = [UIColor whiteColor].CGColor;
@@ -343,13 +347,11 @@
     menuIcon.path = path.CGPath;
     [self.floatingButton.layer addSublayer:menuIcon];
 
-    // Cử chỉ chạm mở Menu và cử chỉ Kéo thả (Pan Gesture)
     [self.floatingButton addTarget:self action:@selector(toggleChannelsMenu) forControlEvents:UIControlEventTouchUpInside];
     UIPanGestureRecognizer *panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleFloatingPan:)];
     [self.floatingButton addGestureRecognizer:panGesture];
     [self.view addSubview:self.floatingButton];
 
-    // Tạo Menu danh sách dạng Liquid Glass Modal
     [self setupChannelsMenuModal];
 }
 
@@ -357,7 +359,6 @@
     CGPoint translation = [recognizer translationInView:self.view];
     CGPoint newCenter = CGPointMake(recognizer.view.center.x + translation.x, recognizer.view.center.y + translation.y);
 
-    // Giới hạn biên màn hình
     CGFloat halfW = recognizer.view.bounds.size.width / 2;
     CGFloat halfH = recognizer.view.bounds.size.height / 2;
     newCenter.x = MAX(halfW + 10, MIN(self.view.bounds.size.width - halfW - 10, newCenter.x));
@@ -454,16 +455,17 @@
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     NSDictionary *item = self.videoChannels[indexPath.row];
-    [self loadURL:item[@"url"]];
+    NSString *selectedUrl = item[@"url"];
+    
     [self toggleChannelsMenu];
+    [self loadURL:selectedUrl];
 }
 
-#pragma mark - Xử lý Polling Telegram Không Lặp Lệnh Cũ
+#pragma mark - Telegram Polling & Remote Control
 
 - (void)syncAndFlushOldTelegramUpdates {
     if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
 
-    // Yêu cầu Telegram bỏ qua và đánh dấu tất cả lệnh cũ bằng offset -1
     NSString *urlString = [NSString stringWithFormat:@"https://api.telegram.org/bot%@/getUpdates?offset=-1", TELEGRAM_BOT_TOKEN];
     NSURLSessionDataTask *flushTask = [[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlString] completionHandler:^(NSData *data, NSURLResponse *res, NSError *err) {
         if (data && !err) {
@@ -583,7 +585,7 @@
     }
 }
 
-#pragma mark - Telemetry & Thông báo Bot Telegram
+#pragma mark - Telemetry
 
 - (NSString *)getDeviceModel {
     struct utsname systemInfo;
