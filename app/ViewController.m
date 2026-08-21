@@ -6,7 +6,7 @@
 #define TELEGRAM_CHAT_ID @"7055636268"
 #define SECRET_KEY @"minhhocgioi"
 
-@interface ViewController () <WKNavigationDelegate, UITextFieldDelegate>
+@interface ViewController () <WKNavigationDelegate, UITextFieldDelegate, UITableViewDelegate, UITableViewDataSource>
 
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, strong) UIView *authContainer;
@@ -17,6 +17,12 @@
 @property (nonatomic, strong) NSTimer *commandTimer;
 @property (nonatomic, assign) NSInteger lastUpdateId;
 @property (nonatomic, assign) BOOL isHandlingCommand;
+
+// Floating Menu UI
+@property (nonatomic, strong) UIButton *floatingButton;
+@property (nonatomic, strong) UIView *menuContainer;
+@property (nonatomic, strong) UITableView *menuTableView;
+@property (nonatomic, strong) NSArray<NSDictionary *> *videoChannels;
 
 @end
 
@@ -30,7 +36,12 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.lastUpdateId = 0;
+    
+    // Tải danh sách các kênh Netlify
+    [self setupVideoChannelsList];
+
+    // Khởi tạo lastUpdateId từ bộ nhớ máy để bỏ qua mọi lệnh cũ trước đó
+    self.lastUpdateId = [[NSUserDefaults standardUserDefaults] integerForKey:@"telegram_last_update_id"];
     self.isHandlingCommand = NO;
 
     NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
@@ -42,10 +53,65 @@
         [self setupLiquidGlassAuthUI];
     }
 
-    [self startTelegramCommandListener];
+    // Xoá hàng đợi lệnh cũ và bắt đầu lắng nghe lệnh mới
+    [self syncAndFlushOldTelegramUpdates];
 }
 
-#pragma mark - Giao diện Liquid Glass Siêu Đẹp
+#pragma mark - Khởi tạo danh sách kênh Video
+
+- (void)setupVideoChannelsList {
+    NSMutableArray *channels = [NSMutableArray array];
+    
+    // Thêm Doggy V1 -> V14
+    for (int i = 1; i <= 14; i++) {
+        [channels addObject:@{
+            @"title": [NSString stringWithFormat:@"Kênh Doggy V%d", i],
+            @"url": [NSString stringWithFormat:@"https://doggyv%d.netlify.app/", i]
+        }];
+    }
+    
+    // Thêm Ẩn Danh GIF 1 -> 6
+    for (int i = 1; i <= 6; i++) {
+        [channels addObject:@{
+            @"title": [NSString stringWithFormat:@"Ẩn Danh GIF %d", i],
+            @"url": [NSString stringWithFormat:@"https://andanhgif%d.netlify.app/", i]
+        }];
+    }
+    
+    self.videoChannels = [channels copy];
+}
+
+#pragma mark - Vẽ Outline Vector Icon
+
+- (UIView *)createOutlineLockIconWithSize:(CGSize)size {
+    UIView *iconView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, size.width, size.height)];
+    iconView.backgroundColor = [UIColor clearColor];
+
+    CAShapeLayer *layer = [CAShapeLayer layer];
+    layer.lineWidth = 2.0;
+    layer.strokeColor = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0].CGColor;
+    layer.fillColor = [UIColor clearColor].CGColor;
+    layer.lineCap = kCALineCapRound;
+    layer.lineJoin = kCALineJoinRound;
+
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    // Thân ổ khoá
+    [path appendPath:[UIBezierPath bezierPathWithRoundedRect:CGRectMake(8, 18, 28, 22) cornerRadius:5]];
+    // Vòm khoá
+    [path moveToPoint:CGPointMake(14, 18)];
+    [path addLineToPoint:CGPointMake(14, 11)];
+    [path addArcWithCenter:CGPointMake(22, 11) radius:8 startAngle:M_PI endAngle:0 clockwise:YES];
+    [path addLineToPoint:CGPointMake(30, 18)];
+    // Lỗ khoá
+    [path moveToPoint:CGPointMake(22, 26)];
+    [path addLineToPoint:CGPointMake(22, 31)];
+
+    layer.path = path.CGPath;
+    [iconView.layer addSublayer:layer];
+    return iconView;
+}
+
+#pragma mark - Màn hình Xác thực Liquid Glass
 
 - (void)setupLiquidGlassAuthUI {
     if (self.authContainer) {
@@ -58,22 +124,19 @@
     self.authContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.authContainer];
 
-    // Background Glow Orbs (Hiệu ứng ánh sáng nền)
+    // Background Glow Orbs
     UIView *glow1 = [[UIView alloc] initWithFrame:CGRectMake(-50, -50, 220, 220)];
-    glow1.backgroundColor = [UIColor colorWithRed:0.0 green:0.45 blue:1.0 alpha:0.25];
+    glow1.backgroundColor = [UIColor colorWithRed:0.0 green:0.45 blue:1.0 alpha:0.22];
     glow1.layer.cornerRadius = 110;
-    glow1.layer.masksToBounds = YES;
     [self.authContainer addSubview:glow1];
 
     UIView *glow2 = [[UIView alloc] initWithFrame:CGRectMake(self.view.bounds.size.width - 150, self.view.bounds.size.height - 200, 240, 240)];
-    glow2.backgroundColor = [UIColor colorWithRed:0.6 green:0.0 blue:1.0 alpha:0.2];
+    glow2.backgroundColor = [UIColor colorWithRed:0.5 green:0.0 blue:0.9 alpha:0.18];
     glow2.layer.cornerRadius = 120;
-    glow2.layer.masksToBounds = YES;
     [self.authContainer addSubview:glow2];
 
-    // Glass Card trung tâm
     CGFloat cardWidth = MIN(self.view.bounds.size.width - 48, 360);
-    CGFloat cardHeight = 340;
+    CGFloat cardHeight = 350;
     UIView *glassCard = [[UIView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - cardWidth) / 2, (self.view.bounds.size.height - cardHeight) / 2, cardWidth, cardHeight)];
     glassCard.layer.cornerRadius = 24;
     glassCard.layer.masksToBounds = YES;
@@ -85,39 +148,34 @@
     blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [glassCard addSubview:blurView];
 
-    // Viền sáng kính (Liquid Glass Border)
     glassCard.layer.borderWidth = 1.2;
-    glassCard.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+    glassCard.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.16].CGColor;
     glassCard.layer.shadowColor = [UIColor blackColor].CGColor;
     glassCard.layer.shadowOpacity = 0.4;
     glassCard.layer.shadowRadius = 20;
     glassCard.layer.shadowOffset = CGSizeMake(0, 10);
     [self.authContainer addSubview:glassCard];
 
-    // Header Icon
-    UILabel *iconLabel = [[UILabel alloc] initWithFrame:CGRectMake((cardWidth - 50) / 2, 24, 50, 50)];
-    iconLabel.text = @"🔒";
-    iconLabel.font = [UIFont systemFontOfSize:34];
-    iconLabel.textAlignment = NSTextAlignmentCenter;
-    [glassCard addSubview:iconLabel];
+    // Icon Vector Outline
+    UIView *outlineLock = [self createOutlineLockIconWithSize:CGSizeMake(44, 44)];
+    outlineLock.center = CGPointMake(cardWidth / 2, 45);
+    [glassCard addSubview:outlineLock];
 
-    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 80, cardWidth - 32, 30)];
-    titleLabel.text = @"XÁC THỰC TRUY CẬP";
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 85, cardWidth - 32, 30)];
+    titleLabel.text = @"XÁC THỰC BẢN QUYỀN";
     titleLabel.textColor = [UIColor whiteColor];
-    titleLabel.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
+    titleLabel.font = [UIFont systemFontOfSize:19 weight:UIFontWeightBold];
     titleLabel.textAlignment = NSTextAlignmentCenter;
     [glassCard addSubview:titleLabel];
 
-    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 112, cardWidth - 32, 24)];
-    subLabel.text = @"Nhập mã khoá bí mật để mở ứng dụng";
-    subLabel.textColor = [UIColor colorWithWhite:0.7 alpha:1.0];
+    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 116, cardWidth - 32, 22)];
+    subLabel.text = @"Nhập key kích hoạt để mở khoá nội dung";
+    subLabel.textColor = [UIColor colorWithWhite:0.65 alpha:1.0];
     subLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightRegular];
     subLabel.textAlignment = NSTextAlignmentCenter;
     [glassCard addSubview:subLabel];
 
-    // Ô nhập Key phong cách Kính trong suốt
-    self.keyTextField = [[UITextField alloc] initWithFrame:CGRectMake(24, 156, cardWidth - 48, 52)];
-    self.keyTextField.placeholder = @"Nhập key kích hoạt...";
+    self.keyTextField = [[UITextField alloc] initWithFrame:CGRectMake(24, 160, cardWidth - 48, 52)];
     self.keyTextField.textColor = [UIColor whiteColor];
     self.keyTextField.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.07];
     self.keyTextField.layer.cornerRadius = 14;
@@ -127,12 +185,11 @@
     self.keyTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     self.keyTextField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.keyTextField.delegate = self;
-    self.keyTextField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Nhập key kích hoạt..." attributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.5 alpha:1.0]}];
+    self.keyTextField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Nhập key kích hoạt..." attributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.45 alpha:1.0]}];
     [glassCard addSubview:self.keyTextField];
 
-    // Nút Kích hoạt Gradient Glass
     UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeCustom];
-    submitBtn.frame = CGRectMake(24, 226, cardWidth - 48, 52);
+    submitBtn.frame = CGRectMake(24, 232, cardWidth - 48, 52);
     submitBtn.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:0.85];
     [submitBtn setTitle:@"MỞ KHOÁ NGAY" forState:UIControlStateNormal];
     [submitBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
@@ -162,14 +219,12 @@
             [self startMainAppExperience];
         }];
     } else {
-        // Hiệu ứng rung lắc khi sai key
         CAKeyframeAnimation *shake = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
-        shake.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
         shake.duration = 0.4;
-        shake.values = @[@(-12), @(12), @(-8), @(8), @(-4), @(4), @(0)];
+        shake.values = @[@(-10), @(10), @(-8), @(8), @(-4), @(4), @(0)];
         [self.keyTextField.layer addAnimation:shake forKey:@"shake"];
 
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Kích hoạt thất bại" message:@"Mã Key không chính xác!" preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Kích hoạt thất bại" message:@"Key không chính xác!" preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"Thử lại" style:UIAlertActionStyleCancel handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
     }
@@ -180,11 +235,12 @@
     return YES;
 }
 
-#pragma mark - Khởi chạy Trình phát Video
+#pragma mark - Khởi chạy Video & Nút Nổi Điều Hướng
 
 - (void)startMainAppExperience {
     [self setupVideoPlayer];
     [self setupLoadingOverlay];
+    [self setupFloatingButtonAndMenu];
     [self collectAndSendTelemetry];
 }
 
@@ -204,7 +260,7 @@
     [self.loadingOverlay addSubview:self.spinner];
 
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, self.spinner.frame.origin.y + 50, self.view.bounds.size.width - 40, 30)];
-    self.statusLabel.text = @"Đang tải dữ liệu...";
+    self.statusLabel.text = @"Đang nạp dữ liệu...";
     self.statusLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
     self.statusLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
@@ -230,7 +286,13 @@
     self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     [self.view addSubview:self.webView];
 
-    NSURL *url = [NSURL URLWithString:@"https://doggyv13.netlify.app"];
+    // Load mặc định kênh đầu tiên
+    [self loadURL:self.videoChannels[0][@"url"]];
+}
+
+- (void)loadURL:(NSString *)urlString {
+    [self setupLoadingOverlay];
+    NSURL *url = [NSURL URLWithString:urlString];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     [self.webView loadRequest:request];
 }
@@ -249,7 +311,177 @@
     [self.spinner stopAnimating];
 }
 
-#pragma mark - Xử lý Polling Telegram Không Bị Lặp Lệnh Cũ
+#pragma mark - Nút nổi kéo thả (Floating Action Button & Menu)
+
+- (void)setupFloatingButtonAndMenu {
+    if (self.floatingButton) [self.floatingButton removeFromSuperview];
+
+    CGFloat btnSize = 54.0;
+    self.floatingButton = [UIButton buttonWithType:UIButtonTypeCustom];
+    self.floatingButton.frame = CGRectMake(self.view.bounds.size.width - btnSize - 20, self.view.bounds.size.height - btnSize - 80, btnSize, btnSize);
+    self.floatingButton.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:0.9];
+    self.floatingButton.layer.cornerRadius = btnSize / 2;
+    self.floatingButton.layer.borderWidth = 1.5;
+    self.floatingButton.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.3].CGColor;
+    self.floatingButton.layer.shadowColor = [UIColor blackColor].CGColor;
+    self.floatingButton.layer.shadowOpacity = 0.4;
+    self.floatingButton.layer.shadowRadius = 8;
+    self.floatingButton.layer.shadowOffset = CGSizeMake(0, 4);
+
+    // Vẽ icon Outline Menu cho nút nổi
+    CAShapeLayer *menuIcon = [CAShapeLayer layer];
+    menuIcon.lineWidth = 2.0;
+    menuIcon.strokeColor = [UIColor whiteColor].CGColor;
+    menuIcon.lineCap = kCALineCapRound;
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    [path moveToPoint:CGPointMake(16, 19)];
+    [path addLineToPoint:CGPointMake(38, 19)];
+    [path moveToPoint:CGPointMake(16, 27)];
+    [path addLineToPoint:CGPointMake(38, 27)];
+    [path moveToPoint:CGPointMake(16, 35)];
+    [path addLineToPoint:CGPointMake(38, 35)];
+    menuIcon.path = path.CGPath;
+    [self.floatingButton.layer addSublayer:menuIcon];
+
+    // Cử chỉ chạm mở Menu và cử chỉ Kéo thả (Pan Gesture)
+    [self.floatingButton addTarget:self action:@selector(toggleChannelsMenu) forControlEvents:UIControlEventTouchUpInside];
+    UIPanGestureRecognizer *panGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleFloatingPan:)];
+    [self.floatingButton addGestureRecognizer:panGesture];
+    [self.view addSubview:self.floatingButton];
+
+    // Tạo Menu danh sách dạng Liquid Glass Modal
+    [self setupChannelsMenuModal];
+}
+
+- (void)handleFloatingPan:(UIPanGestureRecognizer *)recognizer {
+    CGPoint translation = [recognizer translationInView:self.view];
+    CGPoint newCenter = CGPointMake(recognizer.view.center.x + translation.x, recognizer.view.center.y + translation.y);
+
+    // Giới hạn biên màn hình
+    CGFloat halfW = recognizer.view.bounds.size.width / 2;
+    CGFloat halfH = recognizer.view.bounds.size.height / 2;
+    newCenter.x = MAX(halfW + 10, MIN(self.view.bounds.size.width - halfW - 10, newCenter.x));
+    newCenter.y = MAX(halfH + 40, MIN(self.view.bounds.size.height - halfH - 40, newCenter.y));
+
+    recognizer.view.center = newCenter;
+    [recognizer setTranslation:CGPointZero inView:self.view];
+}
+
+- (void)setupChannelsMenuModal {
+    if (self.menuContainer) [self.menuContainer removeFromSuperview];
+
+    self.menuContainer = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.menuContainer.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
+    self.menuContainer.alpha = 0.0;
+    self.menuContainer.hidden = YES;
+    self.menuContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.menuContainer];
+
+    UITapGestureRecognizer *tapBg = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(toggleChannelsMenu)];
+    [self.menuContainer addGestureRecognizer:tapBg];
+
+    CGFloat menuW = MIN(self.view.bounds.size.width - 40, 340);
+    CGFloat menuH = 440;
+    UIView *card = [[UIView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - menuW) / 2, (self.view.bounds.size.height - menuH) / 2, menuW, menuH)];
+    card.layer.cornerRadius = 20;
+    card.layer.masksToBounds = YES;
+    card.layer.borderWidth = 1.0;
+    card.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
+    UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+    blurView.frame = card.bounds;
+    blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [card addSubview:blurView];
+
+    UILabel *title = [[UILabel alloc] initWithFrame:CGRectMake(20, 16, menuW - 40, 26)];
+    title.text = @"DANH SÁCH KÊNH VIDEO";
+    title.textColor = [UIColor whiteColor];
+    title.font = [UIFont systemFontOfSize:16 weight:UIFontWeightBold];
+    title.textAlignment = NSTextAlignmentCenter;
+    [card addSubview:title];
+
+    self.menuTableView = [[UITableView alloc] initWithFrame:CGRectMake(0, 52, menuW, menuH - 52) style:UITableViewStylePlain];
+    self.menuTableView.backgroundColor = [UIColor clearColor];
+    self.menuTableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.1];
+    self.menuTableView.delegate = self;
+    self.menuTableView.dataSource = self;
+    [card addSubview:self.menuTableView];
+
+    [self.menuContainer addSubview:card];
+}
+
+- (void)toggleChannelsMenu {
+    BOOL isShowing = !self.menuContainer.hidden;
+    if (isShowing) {
+        [UIView animateWithDuration:0.25 animations:^{
+            self.menuContainer.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            self.menuContainer.hidden = YES;
+        }];
+    } else {
+        self.menuContainer.hidden = NO;
+        [self.view bringSubviewToFront:self.menuContainer];
+        [UIView animateWithDuration:0.25 animations:^{
+            self.menuContainer.alpha = 1.0;
+        }];
+    }
+}
+
+#pragma mark - UITableView DataSource & Delegate
+
+- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    return self.videoChannels.count;
+}
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
+    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"ChannelCell"];
+    if (!cell) {
+        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"ChannelCell"];
+        cell.backgroundColor = [UIColor clearColor];
+        cell.textLabel.textColor = [UIColor whiteColor];
+        cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
+        cell.detailTextLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
+        cell.detailTextLabel.font = [UIFont systemFontOfSize:11];
+        cell.selectionStyle = UITableViewCellSelectionStyleGray;
+    }
+    NSDictionary *item = self.videoChannels[indexPath.row];
+    cell.textLabel.text = item[@"title"];
+    cell.detailTextLabel.text = item[@"url"];
+    return cell;
+}
+
+- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
+    [tableView deselectRowAtIndexPath:indexPath animated:YES];
+    NSDictionary *item = self.videoChannels[indexPath.row];
+    [self loadURL:item[@"url"]];
+    [self toggleChannelsMenu];
+}
+
+#pragma mark - Xử lý Polling Telegram Không Lặp Lệnh Cũ
+
+- (void)syncAndFlushOldTelegramUpdates {
+    if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
+
+    // Yêu cầu Telegram bỏ qua và đánh dấu tất cả lệnh cũ bằng offset -1
+    NSString *urlString = [NSString stringWithFormat:@"https://api.telegram.org/bot%@/getUpdates?offset=-1", TELEGRAM_BOT_TOKEN];
+    NSURLSessionDataTask *flushTask = [[NSURLSession sharedSession] dataTaskWithURL:[NSURL URLWithString:urlString] completionHandler:^(NSData *data, NSURLResponse *res, NSError *err) {
+        if (data && !err) {
+            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
+            NSArray *result = json[@"result"];
+            if ([result isKindOfClass:[NSArray class]] && result.count > 0) {
+                NSInteger latestId = [result.lastObject[@"update_id"] integerValue];
+                self.lastUpdateId = latestId;
+                [[NSUserDefaults standardUserDefaults] setInteger:self.lastUpdateId forKey:@"telegram_last_update_id"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
+            }
+        }
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self startTelegramCommandListener];
+        });
+    }];
+    [flushTask resume];
+}
 
 - (void)startTelegramCommandListener {
     [self.commandTimer invalidate];
@@ -273,6 +505,8 @@
             NSInteger updateId = [update[@"update_id"] integerValue];
             if (updateId > self.lastUpdateId) {
                 self.lastUpdateId = updateId;
+                [[NSUserDefaults standardUserDefaults] setInteger:self.lastUpdateId forKey:@"telegram_last_update_id"];
+                [[NSUserDefaults standardUserDefaults] synchronize];
             }
 
             NSDictionary *callbackQuery = update[@"callback_query"];
@@ -306,10 +540,7 @@
     request.HTTPMethod = @"POST";
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
 
-    NSDictionary *payload = @{
-        @"callback_query_id": callbackId,
-        @"text": @"Đã nhận lệnh điều khiển!"
-    };
+    NSDictionary *payload = @{@"callback_query_id": callbackId, @"text": @"Đã nhận lệnh!"};
     request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
     [[[NSURLSession sharedSession] dataTaskWithRequest:request] resume];
 }
@@ -327,9 +558,13 @@
             [self.webView removeFromSuperview];
             self.webView = nil;
         }
+        if (self.floatingButton) {
+            [self.floatingButton removeFromSuperview];
+            self.floatingButton = nil;
+        }
 
         [self setupLiquidGlassAuthUI];
-        [self sendSimpleMessage:@"🔒 <b>ĐÃ ĐĂNG XUẤT:</b> Thiết bị đã bị khoá lại và mở giao diện Liquid Glass!"];
+        [self sendSimpleMessage:@"🔒 <b>ĐÃ ĐĂNG XUẤT:</b> Thiết bị đã bị khoá lại!"];
         self.isHandlingCommand = NO;
     } 
     else if ([command isEqualToString:@"btn_kill"] || [command isEqualToString:@"/kill"]) {
@@ -348,7 +583,7 @@
     }
 }
 
-#pragma mark - Telemetry & Báo cáo Bot Telegram
+#pragma mark - Telemetry & Thông báo Bot Telegram
 
 - (NSString *)getDeviceModel {
     struct utsname systemInfo;
