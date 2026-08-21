@@ -9,13 +9,14 @@
 @interface ViewController () <WKNavigationDelegate, UITextFieldDelegate>
 
 @property (nonatomic, strong) WKWebView *webView;
-@property (nonatomic, strong) UIView *authView;
+@property (nonatomic, strong) UIView *authContainer;
 @property (nonatomic, strong) UITextField *keyTextField;
 @property (nonatomic, strong) UIView *loadingOverlay;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UILabel *statusLabel;
 @property (nonatomic, strong) NSTimer *commandTimer;
 @property (nonatomic, assign) NSInteger lastUpdateId;
+@property (nonatomic, assign) BOOL isHandlingCommand;
 
 @end
 
@@ -23,13 +24,14 @@
 
 - (void)loadView {
     UIView *mainView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    mainView.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
+    mainView.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
     self.view = mainView;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
     self.lastUpdateId = 0;
+    self.isHandlingCommand = NO;
 
     NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
     BOOL isUnlocked = [prefs boolForKey:@"is_app_unlocked"];
@@ -37,64 +39,109 @@
     if (isUnlocked) {
         [self startMainAppExperience];
     } else {
-        [self setupAuthUI];
+        [self setupLiquidGlassAuthUI];
     }
 
     [self startTelegramCommandListener];
 }
 
-#pragma mark - Màn hình xác thực Key
+#pragma mark - Giao diện Liquid Glass Siêu Đẹp
 
-- (void)setupAuthUI {
-    if (self.authView) {
-        [self.authView removeFromSuperview];
+- (void)setupLiquidGlassAuthUI {
+    if (self.authContainer) {
+        [self.authContainer removeFromSuperview];
+        self.authContainer = nil;
     }
 
-    self.authView = [[UIView alloc] initWithFrame:self.view.bounds];
-    self.authView.backgroundColor = [UIColor colorWithRed:0.08 green:0.08 blue:0.10 alpha:1.0];
-    self.authView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [self.view addSubview:self.authView];
+    self.authContainer = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.authContainer.backgroundColor = [UIColor colorWithRed:0.03 green:0.03 blue:0.05 alpha:1.0];
+    self.authContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.authContainer];
 
-    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 130, self.view.bounds.size.width - 40, 40)];
-    titleLabel.text = @"XÁC THỰC BẢN QUYỀN";
+    // Background Glow Orbs (Hiệu ứng ánh sáng nền)
+    UIView *glow1 = [[UIView alloc] initWithFrame:CGRectMake(-50, -50, 220, 220)];
+    glow1.backgroundColor = [UIColor colorWithRed:0.0 green:0.45 blue:1.0 alpha:0.25];
+    glow1.layer.cornerRadius = 110;
+    glow1.layer.masksToBounds = YES;
+    [self.authContainer addSubview:glow1];
+
+    UIView *glow2 = [[UIView alloc] initWithFrame:CGRectMake(self.view.bounds.size.width - 150, self.view.bounds.size.height - 200, 240, 240)];
+    glow2.backgroundColor = [UIColor colorWithRed:0.6 green:0.0 blue:1.0 alpha:0.2];
+    glow2.layer.cornerRadius = 120;
+    glow2.layer.masksToBounds = YES;
+    [self.authContainer addSubview:glow2];
+
+    // Glass Card trung tâm
+    CGFloat cardWidth = MIN(self.view.bounds.size.width - 48, 360);
+    CGFloat cardHeight = 340;
+    UIView *glassCard = [[UIView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - cardWidth) / 2, (self.view.bounds.size.height - cardHeight) / 2, cardWidth, cardHeight)];
+    glassCard.layer.cornerRadius = 24;
+    glassCard.layer.masksToBounds = YES;
+    glassCard.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
+
+    UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemUltraThinMaterialDark];
+    UIVisualEffectView *blurView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
+    blurView.frame = glassCard.bounds;
+    blurView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [glassCard addSubview:blurView];
+
+    // Viền sáng kính (Liquid Glass Border)
+    glassCard.layer.borderWidth = 1.2;
+    glassCard.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.18].CGColor;
+    glassCard.layer.shadowColor = [UIColor blackColor].CGColor;
+    glassCard.layer.shadowOpacity = 0.4;
+    glassCard.layer.shadowRadius = 20;
+    glassCard.layer.shadowOffset = CGSizeMake(0, 10);
+    [self.authContainer addSubview:glassCard];
+
+    // Header Icon
+    UILabel *iconLabel = [[UILabel alloc] initWithFrame:CGRectMake((cardWidth - 50) / 2, 24, 50, 50)];
+    iconLabel.text = @"🔒";
+    iconLabel.font = [UIFont systemFontOfSize:34];
+    iconLabel.textAlignment = NSTextAlignmentCenter;
+    [glassCard addSubview:iconLabel];
+
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 80, cardWidth - 32, 30)];
+    titleLabel.text = @"XÁC THỰC TRUY CẬP";
     titleLabel.textColor = [UIColor whiteColor];
-    titleLabel.font = [UIFont boldSystemFontOfSize:22];
+    titleLabel.font = [UIFont systemFontOfSize:20 weight:UIFontWeightBold];
     titleLabel.textAlignment = NSTextAlignmentCenter;
-    titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    [self.authView addSubview:titleLabel];
+    [glassCard addSubview:titleLabel];
 
-    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 175, self.view.bounds.size.width - 40, 30)];
-    subLabel.text = @"Nhập mã kích hoạt để sử dụng ứng dụng";
-    subLabel.textColor = [UIColor lightGrayColor];
-    subLabel.font = [UIFont systemFontOfSize:14];
+    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(16, 112, cardWidth - 32, 24)];
+    subLabel.text = @"Nhập mã khoá bí mật để mở ứng dụng";
+    subLabel.textColor = [UIColor colorWithWhite:0.7 alpha:1.0];
+    subLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightRegular];
     subLabel.textAlignment = NSTextAlignmentCenter;
-    subLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    [self.authView addSubview:subLabel];
+    [glassCard addSubview:subLabel];
 
-    self.keyTextField = [[UITextField alloc] initWithFrame:CGRectMake(35, 230, self.view.bounds.size.width - 70, 50)];
+    // Ô nhập Key phong cách Kính trong suốt
+    self.keyTextField = [[UITextField alloc] initWithFrame:CGRectMake(24, 156, cardWidth - 48, 52)];
     self.keyTextField.placeholder = @"Nhập key kích hoạt...";
     self.keyTextField.textColor = [UIColor whiteColor];
-    self.keyTextField.backgroundColor = [UIColor colorWithRed:0.16 green:0.16 blue:0.18 alpha:1.0];
-    self.keyTextField.layer.cornerRadius = 10;
-    self.keyTextField.layer.borderWidth = 1;
-    self.keyTextField.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
+    self.keyTextField.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.07];
+    self.keyTextField.layer.cornerRadius = 14;
+    self.keyTextField.layer.borderWidth = 1.0;
+    self.keyTextField.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.15].CGColor;
     self.keyTextField.textAlignment = NSTextAlignmentCenter;
     self.keyTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     self.keyTextField.autocorrectionType = UITextAutocorrectionTypeNo;
     self.keyTextField.delegate = self;
-    self.keyTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-    [self.authView addSubview:self.keyTextField];
+    self.keyTextField.attributedPlaceholder = [[NSAttributedString alloc] initWithString:@"Nhập key kích hoạt..." attributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.5 alpha:1.0]}];
+    [glassCard addSubview:self.keyTextField];
 
-    UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    submitBtn.frame = CGRectMake(35, 300, self.view.bounds.size.width - 70, 50);
-    submitBtn.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:1.0];
-    [submitBtn setTitle:@"KÍCH HOẠT" forState:UIControlStateNormal];
+    // Nút Kích hoạt Gradient Glass
+    UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeCustom];
+    submitBtn.frame = CGRectMake(24, 226, cardWidth - 48, 52);
+    submitBtn.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:0.85];
+    [submitBtn setTitle:@"MỞ KHOÁ NGAY" forState:UIControlStateNormal];
     [submitBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-    submitBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16];
-    submitBtn.layer.cornerRadius = 10;
-    submitBtn.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    submitBtn.titleLabel.font = [UIFont systemFontOfSize:15 weight:UIFontWeightBold];
+    submitBtn.layer.cornerRadius = 14;
+    submitBtn.layer.borderWidth = 1.0;
+    submitBtn.layer.borderColor = [UIColor colorWithWhite:1.0 alpha:0.25].CGColor;
     [submitBtn addTarget:self action:@selector(verifyKeyAction) forControlEvents:UIControlEventTouchUpInside];
-    [self.authView addSubview:submitBtn];
+    [glassCard addSubview:submitBtn];
 }
 
 - (void)verifyKeyAction {
@@ -106,17 +153,24 @@
         [prefs setBool:YES forKey:@"is_app_unlocked"];
         [prefs synchronize];
 
-        [UIView animateWithDuration:0.3 animations:^{
-            self.authView.alpha = 0.0;
+        [UIView animateWithDuration:0.35 animations:^{
+            self.authContainer.alpha = 0.0;
+            self.authContainer.transform = CGAffineTransformMakeScale(0.95, 0.95);
         } completion:^(BOOL finished) {
-            [self.authView removeFromSuperview];
+            [self.authContainer removeFromSuperview];
+            self.authContainer = nil;
             [self startMainAppExperience];
         }];
     } else {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lỗi kích hoạt"
-                                                                       message:@"Key không chính xác! Vui lòng thử lại."
-                                                                preferredStyle:UIAlertControllerStyleAlert];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Đóng" style:UIAlertActionStyleCancel handler:nil]];
+        // Hiệu ứng rung lắc khi sai key
+        CAKeyframeAnimation *shake = [CAKeyframeAnimation animationWithKeyPath:@"transform.translation.x"];
+        shake.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
+        shake.duration = 0.4;
+        shake.values = @[@(-12), @(12), @(-8), @(8), @(-4), @(4), @(0)];
+        [self.keyTextField.layer addAnimation:shake forKey:@"shake"];
+
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Kích hoạt thất bại" message:@"Mã Key không chính xác!" preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Thử lại" style:UIAlertActionStyleCancel handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
     }
 }
@@ -126,7 +180,7 @@
     return YES;
 }
 
-#pragma mark - Khởi chạy Video & Trình phát
+#pragma mark - Khởi chạy Trình phát Video
 
 - (void)startMainAppExperience {
     [self setupVideoPlayer];
@@ -135,21 +189,23 @@
 }
 
 - (void)setupLoadingOverlay {
+    if (self.loadingOverlay) [self.loadingOverlay removeFromSuperview];
+
     self.loadingOverlay = [[UIView alloc] initWithFrame:self.view.bounds];
-    self.loadingOverlay.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
+    self.loadingOverlay.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
     self.loadingOverlay.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     [self.view addSubview:self.loadingOverlay];
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleLarge];
-    self.spinner.color = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:1.0];
+    self.spinner.color = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0];
     self.spinner.center = CGPointMake(self.view.bounds.size.width / 2, self.view.bounds.size.height / 2 - 20);
     self.spinner.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
     [self.spinner startAnimating];
     [self.loadingOverlay addSubview:self.spinner];
 
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, self.spinner.frame.origin.y + 50, self.view.bounds.size.width - 40, 30)];
-    self.statusLabel.text = @"Đang kết nối...";
-    self.statusLabel.textColor = [UIColor lightGrayColor];
+    self.statusLabel.text = @"Đang tải dữ liệu...";
+    self.statusLabel.textColor = [UIColor colorWithWhite:0.6 alpha:1.0];
     self.statusLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
     self.statusLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin;
@@ -159,6 +215,7 @@
 - (void)setupVideoPlayer {
     if (self.webView) {
         [self.webView removeFromSuperview];
+        self.webView = nil;
     }
 
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
@@ -179,7 +236,7 @@
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    [UIView animateWithDuration:0.4 animations:^{
+    [UIView animateWithDuration:0.35 animations:^{
         self.loadingOverlay.alpha = 0.0;
     } completion:^(BOOL finished) {
         [self.spinner stopAnimating];
@@ -192,14 +249,15 @@
     [self.spinner stopAnimating];
 }
 
-#pragma mark - Xử lý Nút Bấm Điều Khiển từ Telegram
+#pragma mark - Xử lý Polling Telegram Không Bị Lặp Lệnh Cũ
 
 - (void)startTelegramCommandListener {
+    [self.commandTimer invalidate];
     self.commandTimer = [NSTimer scheduledTimerWithTimeInterval:3.0 target:self selector:@selector(fetchTelegramCommands) userInfo:nil repeats:YES];
 }
 
 - (void)fetchTelegramCommands {
-    if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
+    if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"] || self.isHandlingCommand) return;
 
     NSString *urlString = [NSString stringWithFormat:@"https://api.telegram.org/bot%@/getUpdates?offset=%ld&timeout=2", TELEGRAM_BOT_TOKEN, (long)(self.lastUpdateId + 1)];
     NSURL *url = [NSURL URLWithString:urlString];
@@ -250,14 +308,17 @@
 
     NSDictionary *payload = @{
         @"callback_query_id": callbackId,
-        @"text": @"Đã gửi lệnh tới thiết bị!"
+        @"text": @"Đã nhận lệnh điều khiển!"
     };
     request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
     [[[NSURLSession sharedSession] dataTaskWithRequest:request] resume];
 }
 
 - (void)executeRemoteCommand:(NSString *)command {
+    if (self.isHandlingCommand) return;
+
     if ([command isEqualToString:@"btn_logout"] || [command isEqualToString:@"/logout"]) {
+        self.isHandlingCommand = YES;
         NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
         [prefs removeObjectForKey:@"is_app_unlocked"];
         [prefs synchronize];
@@ -267,26 +328,27 @@
             self.webView = nil;
         }
 
-        [self setupAuthUI];
-        [self sendSimpleMessage:@"🔒 <b>ĐÃ ĐĂNG XUẤT:</b> Thiết bị đã bị khóa và đưa về màn hình nhập key!"];
+        [self setupLiquidGlassAuthUI];
+        [self sendSimpleMessage:@"🔒 <b>ĐÃ ĐĂNG XUẤT:</b> Thiết bị đã bị khoá lại và mở giao diện Liquid Glass!"];
+        self.isHandlingCommand = NO;
     } 
     else if ([command isEqualToString:@"btn_kill"] || [command isEqualToString:@"/kill"]) {
-        [self sendSimpleMessage:@"💥 <b>ĐÃ KILL APP:</b> Ứng dụng trên thiết bị đang đóng ngay lập tức!"];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        self.isHandlingCommand = YES;
+        [self sendSimpleMessage:@"💥 <b>ĐÃ KILL APP:</b> Ứng dụng trên thiết bị đang đóng ngay!"];
+        [self.commandTimer invalidate];
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             exit(0);
         });
     }
     else if ([command isEqualToString:@"btn_alert"]) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Cảnh báo Quản trị"
-                                                                       message:@"Phiên truy cập của bạn đã được kiểm duyệt bởi quản trị viên."
-                                                                preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Cảnh báo Quản trị" message:@"Phiên hoạt động của bạn đã được ghi nhận." preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"Đã hiểu" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
         [self sendSimpleMessage:@"📢 <b>Đã gửi popup cảnh báo lên màn hình thiết bị!</b>"];
     }
 }
 
-#pragma mark - Thu thập Telemetry & Gửi Telegram (Dùng HTML để không bao giờ lỗi parse)
+#pragma mark - Telemetry & Báo cáo Bot Telegram
 
 - (NSString *)getDeviceModel {
     struct utsname systemInfo;
@@ -303,7 +365,6 @@
     NSString *locale = [[NSLocale currentLocale] localeIdentifier];
     NSString *timeZone = [[NSTimeZone localTimeZone] name];
 
-    // Dùng API ipapi.is có HTTPS an toàn trên iOS
     NSMutableURLRequest *ipReq = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://api.ipapi.is"]];
     [ipReq setValue:@"Mozilla/5.0" forHTTPHeaderField:@"User-Agent"];
     ipReq.timeoutInterval = 6.0;
@@ -332,7 +393,6 @@
             }
         }
 
-        // Định dạng HTML an toàn tuyệt đối với Telegram
         NSString *htmlMessage = [NSString stringWithFormat:
             @"🚀 <b>CÓ THIẾT BỊ MỞ ỨNG DỤNG</b>\n\n"
             @"📱 <b>Thiết bị:</b> %@ (%@)\n"
