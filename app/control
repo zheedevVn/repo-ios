@@ -1,7 +1,7 @@
 Package: com.zheedev.videoapp
 Name: Ứng Dụng Xem Video
 Depends: 
-Version: 1.1.6
+Version: 1.1.8
 Architecture: iphoneos-arm64
 Description: Ứng dụng xem video trực tuyến chất lượng cao, tích hợp trình phát WebKit mượt mà.
 Maintainer: ZheeDev <email@domain.com>

