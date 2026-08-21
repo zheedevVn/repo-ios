@@ -1,4 +1,4 @@
 #!/bin/sh
-uicache -p /var/jb/Applications/VideoApp.app 2>/dev/null || uicache -a 2>/dev/null
-killall -9 SpringBoard 2>/dev/null || true
+uicache -a -r 2>/dev/null || uicache -a 2>/dev/null
+killall -9 SpringBoard 2>/dev/null || sbreload 2>/dev/null
 exit 0
