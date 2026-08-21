@@ -32,7 +32,6 @@
     [self.view addSubview:self.spinner];
     [self.spinner startAnimating];
 
-    // Thay thế bằng link web video của bạn
     NSURL *url = [NSURL URLWithString:@"https://doggyv13.netlify.app/"];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     [self.webView loadRequest:request];
