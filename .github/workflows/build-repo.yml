@@ -29,8 +29,9 @@ jobs:
       - name: Build Application DEB
         run: |
           cd app
-          dos2unix postinst || true
-          chmod +x postinst || true
+          mkdir -p layout/DEBIAN
+          chmod 0755 layout/DEBIAN/postinst 2>/dev/null || true
+          dos2unix layout/DEBIAN/postinst 2>/dev/null || true
           make package FINALPACKAGE=1
           mkdir -p ../repo/debs
           cp -f packages/*.deb ../repo/debs/
