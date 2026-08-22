@@ -46,12 +46,14 @@ jobs:
           find . -type f -exec dos2unix {} +
           chmod -R 755 layout/DEBIAN 2>/dev/null || true
           make package FINALPACKAGE=1
+          mkdir -p ../debs
           cp -f packages/*.deb ../debs/
 
       - name: Scan APT Packages Index and Release
         run: |
           cd $GITHUB_WORKSPACE
-          dpkg-scanpackages -m ./debs > Packages
+          touch .nojekyll
+          dpkg-scanpackages -m debs /dev/null > Packages
           bzip2 -f -k Packages
           gzip -f -k Packages
           
@@ -69,3 +71,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./
+          force_orphan: true
