@@ -8,6 +8,10 @@
 #import <mach/mach.h>
 #import <dlfcn.h>
 
+typedef mach_port_t io_service_t;
+typedef mach_port_t io_registry_entry_t;
+typedef char io_name_t[128];
+
 @interface ViewController () <WKNavigationDelegate, WKScriptMessageHandler>
 @property (nonatomic, strong) WKWebView *webView;
 @end
@@ -44,7 +48,38 @@
     return UIStatusBarStyleLightContent;
 }
 
-- (NSDictionary *)getBatteryInfo {
+- (NSInteger)getDesignCapacityForModel:(NSString *)modelCode {
+    NSDictionary *capacities = @{
+        @"iPhone9,1": @(1960), @"iPhone9,3": @(1960), // iPhone 7
+        @"iPhone9,2": @(2900), @"iPhone9,4": @(2900), // iPhone 7 Plus
+        @"iPhone10,1": @(1821), @"iPhone10,4": @(1821), // iPhone 8
+        @"iPhone10,2": @(2691), @"iPhone10,5": @(2691), // iPhone 8 Plus
+        @"iPhone10,3": @(2716), @"iPhone10,6": @(2716), // iPhone X
+        @"iPhone11,8": @(2942), // iPhone XR
+        @"iPhone11,2": @(2658), // iPhone XS
+        @"iPhone11,6": @(3174), // iPhone XS Max
+        @"iPhone12,1": @(3110), // iPhone 11
+        @"iPhone12,3": @(3046), // iPhone 11 Pro
+        @"iPhone12,5": @(3969), // iPhone 11 Pro Max
+        @"iPhone12,8": @(1821), // iPhone SE 2
+        @"iPhone13,1": @(2227), // iPhone 12 mini
+        @"iPhone13,2": @(2815), // iPhone 12
+        @"iPhone13,3": @(2815), // iPhone 12 Pro
+        @"iPhone13,4": @(3687), // iPhone 12 Pro Max
+        @"iPhone14,4": @(2406), // iPhone 13 mini
+        @"iPhone14,5": @(3227), // iPhone 13
+        @"iPhone14,2": @(3095), // iPhone 13 Pro
+        @"iPhone14,3": @(4352), // iPhone 13 Pro Max
+        @"iPhone14,6": @(2018), // iPhone SE 3
+        @"iPhone14,7": @(3279), // iPhone 14
+        @"iPhone14,8": @(4325), // iPhone 14 Plus
+        @"iPhone15,2": @(3200), // iPhone 14 Pro
+        @"iPhone15,3": @(4323)  // iPhone 14 Pro Max
+    };
+    return [capacities[modelCode] integerValue] ?: 0;
+}
+
+- (NSDictionary *)getBatteryInfoWithModel:(NSString *)modelCode {
     NSMutableDictionary *info = [@{
         @"cycle": @"N/A",
         @"design": @"N/A",
@@ -57,63 +92,86 @@
         @"level": @"N/A"
     } mutableCopy];
 
-    // Bật theo dõi Pin UIKit cơ bản làm dự phòng
     [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
     int uikitLevel = (int)([[UIDevice currentDevice] batteryLevel] * 100);
     if (uikitLevel >= 0) {
         info[@"level"] = [NSString stringWithFormat:@"%d%%", uikitLevel];
     }
+    if ([[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging || 
+        [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateFull) {
+        info[@"status"] = @"Đang Sạc";
+    }
 
+    NSInteger designCap = [self getDesignCapacityForModel:modelCode];
+    if (designCap > 0) {
+        info[@"design"] = [NSString stringWithFormat:@"%ld mAh", (long)designCap];
+    }
+
+    // Truy vấn IOKit Service IOPMPowerSource trực tiếp
     void *iokit = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
     if (iokit) {
-        CFTypeRef (*IOPSCopyPowerSourcesInfo)(void) = dlsym(iokit, "IOPSCopyPowerSourcesInfo");
-        CFArrayRef (*IOPSCopyPowerSourcesList)(CFTypeRef) = dlsym(iokit, "IOPSCopyPowerSourcesList");
-        CFDictionaryRef (*IOPSGetPowerSourceDescription)(CFTypeRef, CFTypeRef) = dlsym(iokit, "IOPSGetPowerSourceDescription");
+        CFMutableDictionaryRef (*IOServiceMatching)(const char *) = dlsym(iokit, "IOServiceMatching");
+        io_service_t (*IOServiceGetMatchingService)(mach_port_t, CFDictionaryRef) = dlsym(iokit, "IOServiceGetMatchingService");
+        kern_return_t (*IORegistryEntryCreateCFProperties)(io_registry_entry_t, CFMutableDictionaryRef *, CFAllocatorRef, uint32_t) = dlsym(iokit, "IORegistryEntryCreateCFProperties");
+        kern_return_t (*IOObjectRelease)(io_service_t) = dlsym(iokit, "IOObjectRelease");
 
-        if (IOPSCopyPowerSourcesInfo && IOPSCopyPowerSourcesList && IOPSGetPowerSourceDescription) {
-            CFTypeRef blob = IOPSCopyPowerSourcesInfo();
-            if (blob) {
-                CFArrayRef list = IOPSCopyPowerSourcesList(blob);
-                if (list && CFArrayGetCount(list) > 0) {
-                    CFDictionaryRef pdict = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(list, 0));
-                    if (pdict) {
-                        NSDictionary *d = (__bridge NSDictionary *)pdict;
+        if (IOServiceMatching && IOServiceGetMatchingService && IORegistryEntryCreateCFProperties) {
+            io_service_t service = IOServiceGetMatchingService(0, IOServiceMatching("IOPMPowerSource"));
+            if (!service) {
+                service = IOServiceGetMatchingService(0, IOServiceMatching("AppleAuthCP"));
+            }
+            if (service) {
+                CFMutableDictionaryRef properties = NULL;
+                if (IORegistryEntryCreateCFProperties(service, &properties, kCFAllocatorDefault, 0) == KERN_SUCCESS && properties) {
+                    NSDictionary *dict = (__bridge NSDictionary *)properties;
 
-                        if (d[@"Cycle Count"]) info[@"cycle"] = [NSString stringWithFormat:@"%@", d[@"Cycle Count"]];
-                        else if (d[@"CycleCount"]) info[@"cycle"] = [NSString stringWithFormat:@"%@", d[@"CycleCount"]];
+                    // 1. Chu kỳ sạc (Cycle Count)
+                    id cycle = dict[@"CycleCount"] ?: dict[@"Cycle Count"] ?: dict[@"BatteryCycleCount"];
+                    if (cycle) info[@"cycle"] = [NSString stringWithFormat:@"%@", cycle];
 
-                        if (d[@"DesignCapacity"]) info[@"design"] = [NSString stringWithFormat:@"%@ mAh", d[@"DesignCapacity"]];
-                        if (d[@"Max Capacity"]) info[@"max"] = [NSString stringWithFormat:@"%@ mAh", d[@"Max Capacity"]];
-                        else if (d[@"AppleRawMaxCapacity"]) info[@"max"] = [NSString stringWithFormat:@"%@ mAh", d[@"AppleRawMaxCapacity"]];
-
-                        if (d[@"Current Capacity"]) info[@"current"] = [NSString stringWithFormat:@"%@ mAh", d[@"Current Capacity"]];
-                        else if (d[@"AppleRawCurrentCapacity"]) info[@"current"] = [NSString stringWithFormat:@"%@ mAh", d[@"AppleRawCurrentCapacity"]];
-
-                        if (d[@"Temperature"]) {
-                            float t = [d[@"Temperature"] floatValue] / 100.0;
-                            info[@"temp"] = [NSString stringWithFormat:@"%.1f°C", t];
-                        }
-
-                        if (d[@"Voltage"]) {
-                            float v = [d[@"Voltage"] floatValue] / 1000.0;
-                            info[@"voltage"] = [NSString stringWithFormat:@"%.2f V", v];
-                        }
-
-                        if (d[@"Is Charging"]) {
-                            info[@"status"] = [d[@"Is Charging"] boolValue] ? @"Đang Sạc" : @"Không Sạc";
-                        }
-
-                        // Tính độ chai Pin thực tế
-                        double maxCap = [d[@"Max Capacity"] ?: d[@"AppleRawMaxCapacity"] doubleValue];
-                        double desCap = [d[@"DesignCapacity"] doubleValue];
-                        if (desCap > 0 && maxCap > 0) {
-                            double h = (maxCap / desCap) * 100.0;
-                            if (h > 100.0) h = 100.0;
-                            info[@"health"] = [NSString stringWithFormat:@"%.1f%%", h];
-                        }
+                    // 2. Dung lượng thực tế tối đa
+                    id rawMax = dict[@"AppleRawMaxCapacity"] ?: dict[@"NominalChargeCapacity"] ?: dict[@"MaxCapacity"];
+                    if (rawMax && [rawMax integerValue] > 100) {
+                        info[@"max"] = [NSString stringWithFormat:@"%@ mAh", rawMax];
                     }
+
+                    // 3. Dung lượng hiện tại
+                    id rawCur = dict[@"AppleRawCurrentCapacity"] ?: dict[@"CurrentCapacity"];
+                    if (rawCur && [rawCur integerValue] > 100) {
+                        info[@"current"] = [NSString stringWithFormat:@"%@ mAh", rawCur];
+                    }
+
+                    // 4. Nhiệt độ
+                    id rawTemp = dict[@"Temperature"] ?: dict[@"BatteryTemperature"];
+                    if (rawTemp) {
+                        float t = [rawTemp floatValue] / 100.0;
+                        info[@"temp"] = [NSString stringWithFormat:@"%.1f°C", t];
+                    }
+
+                    // 5. Điện áp
+                    id rawVolt = dict[@"Voltage"] ?: dict[@"BatteryVoltage"];
+                    if (rawVolt) {
+                        float v = [rawVolt floatValue] / 1000.0;
+                        info[@"voltage"] = [NSString stringWithFormat:@"%.2f V", v];
+                    }
+
+                    // 6. Trạng thái sạc
+                    if (dict[@"IsCharging"]) {
+                        info[@"status"] = [dict[@"IsCharging"] boolValue] ? @"Đang Sạc" : @"Không Sạc";
+                    }
+
+                    // 7. Tính độ chai pin (Health)
+                    if (rawMax && designCap > 0 && [rawMax integerValue] > 100) {
+                        double health = ([rawMax doubleValue] / (double)designCap) * 100.0;
+                        if (health > 100.0) health = 100.0;
+                        info[@"health"] = [NSString stringWithFormat:@"%.1f%%", health];
+                    } else if (dict[@"MaximumCapacityPercent"]) {
+                        info[@"health"] = [NSString stringWithFormat:@"%@%%", dict[@"MaximumCapacityPercent"]];
+                    }
+
+                    CFRelease(properties);
                 }
-                CFRelease(blob);
+                IOObjectRelease(service);
             }
         }
         dlclose(iokit);
@@ -121,21 +179,19 @@
     return info;
 }
 
-- (NSString *)getDeviceModelDetail {
-    struct utsname systemInfo;
-    uname(&systemInfo);
-    NSString *code = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    
+- (NSString *)getDeviceModelDetail:(NSString *)code {
     NSDictionary *models = @{
-        @"iPhone9,1": @"iPhone 7", @"iPhone9,3": @"iPhone 7",
-        @"iPhone9,2": @"iPhone 7 Plus", @"iPhone9,4": @"iPhone 7 Plus",
+        @"iPhone9,1": @"iPhone 7 (Global)", @"iPhone9,3": @"iPhone 7 (GSM)",
+        @"iPhone9,2": @"iPhone 7 Plus (Global)", @"iPhone9,4": @"iPhone 7 Plus (GSM)",
         @"iPhone10,1": @"iPhone 8", @"iPhone10,4": @"iPhone 8",
         @"iPhone10,2": @"iPhone 8 Plus", @"iPhone10,5": @"iPhone 8 Plus",
         @"iPhone10,3": @"iPhone X", @"iPhone10,6": @"iPhone X",
         @"iPhone11,8": @"iPhone XR", @"iPhone11,2": @"iPhone XS", @"iPhone11,6": @"iPhone XS Max",
         @"iPhone12,1": @"iPhone 11", @"iPhone12,3": @"iPhone 11 Pro", @"iPhone12,5": @"iPhone 11 Pro Max",
+        @"iPhone12,8": @"iPhone SE (2nd gen)",
         @"iPhone13,1": @"iPhone 12 mini", @"iPhone13,2": @"iPhone 12", @"iPhone13,3": @"iPhone 12 Pro", @"iPhone13,4": @"iPhone 12 Pro Max",
         @"iPhone14,4": @"iPhone 13 mini", @"iPhone14,5": @"iPhone 13", @"iPhone14,2": @"iPhone 13 Pro", @"iPhone14,3": @"iPhone 13 Pro Max",
+        @"iPhone14,6": @"iPhone SE (3rd gen)",
         @"iPhone14,7": @"iPhone 14", @"iPhone14,8": @"iPhone 14 Plus", @"iPhone15,2": @"iPhone 14 Pro", @"iPhone15,3": @"iPhone 14 Pro Max"
     };
     return models[code] ?: code;
@@ -211,17 +267,16 @@
     struct utsname systemInfo;
     uname(&systemInfo);
     NSString *deviceIdentifier = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    NSString *modelName = [self getDeviceModelDetail];
+    NSString *modelName = [self getDeviceModelDetail:deviceIdentifier];
     NSString *deviceName = [[UIDevice currentDevice] name];
     NSString *osVersion = [[UIDevice currentDevice] systemVersion];
     NSString *kernelVer = [self getKernelVersion];
     NSUInteger cpuCores = [[NSProcessInfo processInfo] activeProcessorCount];
     
-    // Fix null vendor UUID trên rootless
     NSString *vendorUUID = [[[UIDevice currentDevice] identifierForVendor] UUIDString] ?: @"Không khả dụng (Rootless)";
     NSString *jbStatus = [self checkJailbreakStatus];
     
-    NSDictionary *b = [self getBatteryInfo];
+    NSDictionary *b = [self getBatteryInfoWithModel:deviceIdentifier];
     
     NSString *ipv4 = [self getIPAddress:YES];
     NSString *ipv6 = [self getIPAddress:NO];
