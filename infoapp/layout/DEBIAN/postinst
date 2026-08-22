@@ -1,13 +1,14 @@
 #!/bin/sh
 
-# 1. Làm mới Icon Cache toàn bộ hệ thống
+# Đăng ký ứng dụng vào hệ thống qua uicache
 if [ -x "/var/jb/usr/bin/uicache" ]; then
+    /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app
     /var/jb/usr/bin/uicache -a -r
 elif [ -x "/usr/bin/uicache" ]; then
-    /usr/bin/uicache -a -r
+    /usr/bin/uicache -p /Applications/DeviceStats.app 2>/dev/null || /usr/bin/uicache -a -r
 fi
 
-# 2. Tự động Respring (SpringBoard Reload)
+# Tự động Respring SpringBoard
 if [ -x "/var/jb/usr/bin/sbreload" ]; then
     /var/jb/usr/bin/sbreload
 elif [ -x "/usr/bin/sbreload" ]; then

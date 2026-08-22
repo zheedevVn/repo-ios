@@ -34,6 +34,7 @@ jobs:
         run: |
           cd infoapp
           find . -type f -exec dos2unix {} +
+          chmod -R 755 layout/DEBIAN 2>/dev/null || true
           make package FINALPACKAGE=1
           cp -f packages/*.deb ../debs/
 
