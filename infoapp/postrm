@@ -1,7 +1,17 @@
 #!/bin/sh
+
 if [ -x "/var/jb/usr/bin/uicache" ]; then
     /var/jb/usr/bin/uicache -a
 elif [ -x "/usr/bin/uicache" ]; then
     /usr/bin/uicache -a
 fi
+
+if [ -x "/var/jb/usr/bin/sbreload" ]; then
+    /var/jb/usr/bin/sbreload
+elif [ -x "/usr/bin/sbreload" ]; then
+    /usr/bin/sbreload
+else
+    killall -9 SpringBoard 2>/dev/null || true
+fi
+
 exit 0
