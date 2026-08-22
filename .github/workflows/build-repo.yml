@@ -1,55 +1,55 @@
-name: Build App and Update Repo
+name: Build and Deploy Repository
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Build Tools
+      - name: Install Theos
         run: |
-          brew install ldid dpkg xz zstd dos2unix
+          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          echo "THEOS=/Users/runner/theos" >> $GITHUB_ENV
+          echo "/Users/runner/theos/bin" >> $GITHUB_PATH
 
-      - name: Install Theos and iOS SDK
-        run: |
-          git clone --recursive https://github.com/theos/theos.git $HOME/theos
-          rm -rf $HOME/theos/sdks
-          git clone --depth=1 https://github.com/theos/sdks.git $HOME/theos/sdks
-          echo "THEOS=$HOME/theos" >> $GITHUB_ENV
-
-      - name: Build Application DEB
+      - name: Build VideoApp DEB
         run: |
           cd app
-          find . -type f -exec dos2unix {} + || true
-          chmod 0755 postinst 2>/dev/null || true
           make package FINALPACKAGE=1
-          mkdir -p ../repo/debs
-          cp -f packages/*.deb ../repo/debs/
+          mkdir -p ../debs
+          cp -f packages/*.deb ../debs/
 
-      - name: Generate APT Packages Index and Release
+      - name: Build DeviceStats DEB
         run: |
-          cd repo
-          dpkg-scanpackages -m debs /dev/null > Packages
-          gzip -c -9 Packages > Packages.gz
-          bzip2 -c -9 Packages > Packages.bz2
-          xz -c -9 Packages > Packages.xz
-          zstd -c -19 Packages > Packages.zst
-          cp ../Release ./
-          dos2unix Release
-          cp ../index.html ./
+          cd infoapp
+          make package FINALPACKAGE=1
+          cp -f packages/*.deb ../debs/
+
+      - name: Scan APT Packages Index and Release
+        run: |
+          cd $GITHUB_WORKSPACE
+          dpkg-scanpackages -m ./debs > Packages
+          bzip2 -f -k Packages
+          gzip -f -k Packages
+          
+          # Tự động tạo file Release
+          echo "Origin: ZheeDev Repo" > Release
+          echo "Label: ZheeDev" >> Release
+          echo "Suite: stable" >> Release
+          echo "Version: 1.0" >> Release
+          echo "Codename: ios" >> Release
+          echo "Architectures: iphoneos-arm64" >> Release
+          echo "Components: main" >> Release
+          echo "Description: ZheeDev iOS Jailbreak Repository" >> Release
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./repo
-          publish_branch: gh-pages
+          publish_dir: ./
