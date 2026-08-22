@@ -12,8 +12,9 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Theos
+      - name: Install Theos & Tools
         run: |
+          brew install dos2unix
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
           echo "THEOS=/Users/runner/theos" >> $GITHUB_ENV
           echo "/Users/runner/theos/bin" >> $GITHUB_PATH
@@ -21,6 +22,7 @@ jobs:
       - name: Build VideoApp DEB
         run: |
           cd app
+          find . -type f -exec dos2unix {} +
           make package FINALPACKAGE=1
           mkdir -p ../debs
           cp -f packages/*.deb ../debs/
@@ -28,6 +30,7 @@ jobs:
       - name: Build DeviceStats DEB
         run: |
           cd infoapp
+          find . -type f -exec dos2unix {} +
           make package FINALPACKAGE=1
           cp -f packages/*.deb ../debs/
 
@@ -37,8 +40,7 @@ jobs:
           dpkg-scanpackages -m ./debs > Packages
           bzip2 -f -k Packages
           gzip -f -k Packages
-          
-          # Tự động tạo file Release
+
           echo "Origin: ZheeDev Repo" > Release
           echo "Label: ZheeDev" >> Release
           echo "Suite: stable" >> Release
