@@ -1,10 +1,10 @@
 #!/bin/sh
 
-# Đăng ký với LaunchServices
+# Đăng ký Bundle của App vào LaunchServices
 if [ -x "/var/jb/usr/bin/uicache" ]; then
-    /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app -r
+    /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app -a
 elif [ -x "/usr/bin/uicache" ]; then
-    /usr/bin/uicache -p /Applications/DeviceStats.app -r
+    /usr/bin/uicache -p /Applications/DeviceStats.app 2>/dev/null || /usr/bin/uicache -a
 fi
 
 exit 0
