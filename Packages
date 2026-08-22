@@ -1,0 +1,34 @@
+Package: com.zheedev.devicestats
+Version: 1.2.2
+Architecture: iphoneos-arm64
+Maintainer: ZheeDev
+Installed-Size: 268
+Depends: mobilesubstrate, uikittools
+Filename: debs/com.zheedev.devicestats_1.2.2_iphoneos-arm64.deb
+Size: 48774
+MD5sum: 65b88960f78b585d8951c0dbdc42ddac
+SHA1: 21c5ed8ec00a9055d533d047b0e7138107b2e8dc
+SHA256: dfc3d342cbd7579563f2f30709c0874f35c9cfe84743f35ba3c715958fd50f65
+Section: Utilities
+Description: Trình phân tích & hiển thị toàn diện thông số phần cứng, hệ điều hành, pin thực tế và mạng
+Tag: role::cydia, purpose::uikit
+Author: ZheeDev
+Name: Thông Tin Thiết Bị (Device Info)
+
+Package: com.zheedev.videoapp
+Version: 1.2.4
+Architecture: iphoneos-arm64
+Maintainer: ZheeDev
+Installed-Size: 284
+Depends: mobilesubstrate, uikittools
+Filename: debs/com.zheedev.videoapp_1.2.4_iphoneos-arm64.deb
+Size: 42702
+MD5sum: 7ec456f85ea73b7118d16e1fa08bf125
+SHA1: 56558b091ee31e6d92a3dc95c9f25094ab3fee15
+SHA256: 832334191c1a452e07d46c9bb8bcb70aeee3daa8fff2af27cd811a5fda87fe36
+Section: Multimedia
+Description: Ứng dụng xem video trực tuyến chất lượng cao, tích hợp trình phát WebKit mượt mà.
+Tag: role::cydia, purpose::uikit, restart::springboard
+Author: ZheeDev
+Name: Ứng Dụng Xem Video
+
