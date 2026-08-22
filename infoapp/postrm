@@ -1,0 +1,7 @@
+#!/bin/sh
+if [ -x "/var/jb/usr/bin/uicache" ]; then
+    /var/jb/usr/bin/uicache -a
+elif [ -x "/usr/bin/uicache" ]; then
+    /usr/bin/uicache -a
+fi
+exit 0
