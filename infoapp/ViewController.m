@@ -6,6 +6,7 @@
 #import <arpa/inet.h>
 #import <net/if.h>
 #import <mach/mach.h>
+#import <dlfcn.h>
 
 @interface ViewController () <WKNavigationDelegate, WKScriptMessageHandler>
 @property (nonatomic, strong) WKWebView *webView;
@@ -43,40 +44,86 @@
     return UIStatusBarStyleLightContent;
 }
 
+- (NSDictionary *)getBatteryInfo {
+    NSMutableDictionary *batteryData = [NSMutableDictionary dictionary];
+    [batteryData setValue:@"N/A" forKey:@"CycleCount"];
+    [batteryData setValue:@"N/A" forKey:@"DesignCapacity"];
+    [batteryData setValue:@"N/A" forKey:@"MaxCapacity"];
+    [batteryData setValue:@"N/A" forKey:@"CurrentCapacity"];
+    [batteryData setValue:@"N/A" forKey:@"BatteryHealth"];
+    [batteryData setValue:@"N/A" forKey:@"Temperature"];
+    [batteryData setValue:@"N/A" forKey:@"IsCharging"];
+    [batteryData setValue:@"N/A" forKey:@"Voltage"];
+
+    // Truy cập trực tiếp IOKit framework ở cấp độ hệ thống
+    void *iokit = dlopen("/System/Library/Frameworks/IOKit.framework/IOKit", RTLD_NOW);
+    if (iokit) {
+        CFTypeRef (*IOPSCopyPowerSourcesInfo)(void) = dlsym(iokit, "IOPSCopyPowerSourcesInfo");
+        CFArrayRef (*IOPSCopyPowerSourcesList)(CFTypeRef) = dlsym(iokit, "IOPSCopyPowerSourcesList");
+        CFDictionaryRef (*IOPSGetPowerSourceDescription)(CFTypeRef, CFTypeRef) = dlsym(iokit, "IOPSGetPowerSourceDescription");
+
+        if (IOPSCopyPowerSourcesInfo && IOPSCopyPowerSourcesList && IOPSGetPowerSourceDescription) {
+            CFTypeRef blob = IOPSCopyPowerSourcesInfo();
+            if (blob) {
+                CFArrayRef sources = IOPSCopyPowerSourcesList(blob);
+                if (sources && CFArrayGetCount(sources) > 0) {
+                    CFDictionaryRef pSource = IOPSGetPowerSourceDescription(blob, CFArrayGetValueAtIndex(sources, 0));
+                    if (pSource) {
+                        NSDictionary *dict = (__bridge NSDictionary *)pSource;
+                        
+                        if (dict[@"CycleCount"]) [batteryData setValue:[dict[@"CycleCount"] stringValue] forKey:@"CycleCount"];
+                        if (dict[@"DesignCapacity"]) [batteryData setValue:[dict[@"DesignCapacity"] stringValue] forKey:@"DesignCapacity"];
+                        if (dict[@"MaxCapacity"]) [batteryData setValue:[dict[@"MaxCapacity"] stringValue] forKey:@"MaxCapacity"];
+                        if (dict[@"CurrentCapacity"]) [batteryData setValue:[dict[@"CurrentCapacity"] stringValue] forKey:@"CurrentCapacity"];
+                        
+                        if (dict[@"Temperature"]) {
+                            float temp = [dict[@"Temperature"] floatValue] / 100.0;
+                            [batteryData setValue:[NSString stringWithFormat:@"%.1f°C", temp] forKey:@"Temperature"];
+                        }
+                        if (dict[@"Is Charging"]) {
+                            [batteryData setValue:([dict[@"Is Charging"] boolValue] ? @"Đang Sạc" : @"Không Sạc") forKey:@"IsCharging"];
+                        }
+                        if (dict[@"Voltage"]) {
+                            float volt = [dict[@"Voltage"] floatValue] / 1000.0;
+                            [batteryData setValue:[NSString stringWithFormat:@"%.2f V", volt] forKey:@"Voltage"];
+                        }
+                        
+                        // Tính toán độ chai pin (Health)
+                        if (dict[@"MaxCapacity"] && dict[@"DesignCapacity"]) {
+                            float max = [dict[@"MaxCapacity"] floatValue];
+                            float design = [dict[@"DesignCapacity"] floatValue];
+                            if (design > 0) {
+                                float health = (max / design) * 100.0;
+                                if (health > 100.0) health = 100.0;
+                                [batteryData setValue:[NSString stringWithFormat:@"%.1f%%", health] forKey:@"BatteryHealth"];
+                            }
+                        }
+                    }
+                }
+                CFRelease(blob);
+            }
+        }
+        dlclose(iokit);
+    }
+    return batteryData;
+}
+
 - (NSString *)getDeviceModelDetail {
     struct utsname systemInfo;
     uname(&systemInfo);
     NSString *code = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
     
     NSDictionary *models = @{
-        @"iPhone9,1": @"iPhone 7 (Global)",
-        @"iPhone9,3": @"iPhone 7 (GSM)",
-        @"iPhone9,2": @"iPhone 7 Plus (Global)",
-        @"iPhone9,4": @"iPhone 7 Plus (GSM)",
-        @"iPhone10,1": @"iPhone 8",
-        @"iPhone10,4": @"iPhone 8",
-        @"iPhone10,2": @"iPhone 8 Plus",
-        @"iPhone10,5": @"iPhone 8 Plus",
-        @"iPhone10,3": @"iPhone X",
-        @"iPhone10,6": @"iPhone X",
-        @"iPhone11,8": @"iPhone XR",
-        @"iPhone11,2": @"iPhone XS",
-        @"iPhone11,6": @"iPhone XS Max",
-        @"iPhone12,1": @"iPhone 11",
-        @"iPhone12,3": @"iPhone 11 Pro",
-        @"iPhone12,5": @"iPhone 11 Pro Max",
-        @"iPhone13,1": @"iPhone 12 mini",
-        @"iPhone13,2": @"iPhone 12",
-        @"iPhone13,3": @"iPhone 12 Pro",
-        @"iPhone13,4": @"iPhone 12 Pro Max",
-        @"iPhone14,4": @"iPhone 13 mini",
-        @"iPhone14,5": @"iPhone 13",
-        @"iPhone14,2": @"iPhone 13 Pro",
-        @"iPhone14,3": @"iPhone 13 Pro Max",
-        @"iPhone14,7": @"iPhone 14",
-        @"iPhone14,8": @"iPhone 14 Plus",
-        @"iPhone15,2": @"iPhone 14 Pro",
-        @"iPhone15,3": @"iPhone 14 Pro Max"
+        @"iPhone9,1": @"iPhone 7", @"iPhone9,3": @"iPhone 7",
+        @"iPhone9,2": @"iPhone 7 Plus", @"iPhone9,4": @"iPhone 7 Plus",
+        @"iPhone10,1": @"iPhone 8", @"iPhone10,4": @"iPhone 8",
+        @"iPhone10,2": @"iPhone 8 Plus", @"iPhone10,5": @"iPhone 8 Plus",
+        @"iPhone10,3": @"iPhone X", @"iPhone10,6": @"iPhone X",
+        @"iPhone11,8": @"iPhone XR", @"iPhone11,2": @"iPhone XS", @"iPhone11,6": @"iPhone XS Max",
+        @"iPhone12,1": @"iPhone 11", @"iPhone12,3": @"iPhone 11 Pro", @"iPhone12,5": @"iPhone 11 Pro Max",
+        @"iPhone13,1": @"iPhone 12 mini", @"iPhone13,2": @"iPhone 12", @"iPhone13,3": @"iPhone 12 Pro", @"iPhone13,4": @"iPhone 12 Pro Max",
+        @"iPhone14,4": @"iPhone 13 mini", @"iPhone14,5": @"iPhone 13", @"iPhone14,2": @"iPhone 13 Pro", @"iPhone14,3": @"iPhone 13 Pro Max",
+        @"iPhone14,7": @"iPhone 14", @"iPhone14,8": @"iPhone 14 Plus", @"iPhone15,2": @"iPhone 14 Pro", @"iPhone15,3": @"iPhone 14 Pro Max"
     };
     return models[code] ?: code;
 }
@@ -91,7 +138,6 @@
     NSArray *searchArray = preferIPv4 ?
         @[ @"en0/ipv4", @"pdp_ip0/ipv4", @"en1/ipv4" ] :
         @[ @"en0/ipv6", @"pdp_ip0/ipv6", @"en1/ipv6" ];
-
     NSDictionary *addresses = [self getAllIPAddresses];
     for (NSString *key in searchArray) {
         if (addresses[key]) return addresses[key];
@@ -130,16 +176,11 @@
 
 - (NSString *)checkJailbreakStatus {
     NSArray *paths = @[
-        @"/var/jb/Applications",
-        @"/var/jb/usr/bin/uicache",
-        @"/Applications/Sileo.app",
-        @"/Applications/Zebra.app",
-        @"/Library/MobileSubstrate/MobileSubstrate.dylib"
+        @"/var/jb/Applications", @"/var/jb/usr/bin/uicache",
+        @"/Applications/Sileo.app", @"/Library/MobileSubstrate/MobileSubstrate.dylib"
     ];
     for (NSString *path in paths) {
-        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
-            return @"Dopamine / Rootless (Active)";
-        }
+        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) return @"Dopamine / Rootless (Active)";
     }
     return @"Đã bẻ khóa (Jailbroken)";
 }
@@ -149,12 +190,8 @@
     size_t len = sizeof(boottime);
     int mib[2] = { CTL_KERN, KERN_BOOTTIME };
     if (sysctl(mib, 2, &boottime, &len, NULL, 0) < 0) return @"N/A";
-    time_t bsec = boottime.tv_sec;
-    time_t csec = time(NULL);
-    long uptimeSecs = csec - bsec;
-    long hours = uptimeSecs / 3600;
-    long mins = (uptimeSecs % 3600) / 60;
-    return [NSString stringWithFormat:@"%ld giờ %ld phút", hours, mins];
+    time_t uptimeSecs = time(NULL) - boottime.tv_sec;
+    return [NSString stringWithFormat:@"%ld giờ %ld phút", uptimeSecs / 3600, (uptimeSecs % 3600) / 60];
 }
 
 - (void)loadSystemData {
@@ -168,6 +205,9 @@
     NSUInteger cpuCores = [[NSProcessInfo processInfo] activeProcessorCount];
     NSString *vendorUUID = [[[UIDevice currentDevice] identifierForVendor] UUIDString];
     NSString *jbStatus = [self checkJailbreakStatus];
+    
+    NSDictionary *battery = [self getBatteryInfo];
+    
     NSString *ipv4 = [self getIPAddress:YES];
     NSString *ipv6 = [self getIPAddress:NO];
     NSString *timeZone = [[NSTimeZone localTimeZone] name];
@@ -195,6 +235,7 @@
     @".icon-purple { stroke: #a78bfa; }"
     @".icon-emerald { stroke: #34d399; }"
     @".icon-amber { stroke: #fbbf24; }"
+    @".icon-rose { stroke: #fb7185; }"
     @".card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; }"
     @".row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; }"
     @".label { color: #cbd5e1; font-weight: 500; }"
@@ -237,6 +278,20 @@
     @"  <div class='row'><span class='label'>Vendor UUID</span><span class='value' style='font-size:11px;'>%@</span></div>"
     @"  <div class='row'><span class='label'>Môi Trường Bẻ Khóa</span><span class='value value-amber'>%@</span></div>"
     @"  <div class='row'><span class='label'>Sandbox Status</span><span class='value value-sub'>Rootless / Unsandboxed</span></div>"
+    @"</div>"
+
+    @"<!-- PIN -->"
+    @"<div class='card'>"
+    @"  <div class='card-header'>"
+    @"    <svg class='card-icon icon-rose' viewBox='0 0 24 24'><rect x='2' y='7' width='16' height='10' rx='2' ry='2'></rect><line x1='22' y1='11' x2='22' y2='13'></line><line x1='6' y1='12' x2='6' y2='12'></line><line x1='10' y1='12' x2='10' y2='12'></line><line x1='14' y1='12' x2='14' y2='12'></line></svg>"
+    @"    <div class='card-title' style='color:#fda4af;'>Dữ Liệu Pin (Battery)</div>"
+    @"  </div>"
+    @"  <div class='row'><span class='label'>Dung Lượng Sạc Lại</span><span class='value'>%@ / %@ mAh</span></div>"
+    @"  <div class='row'><span class='label'>Tình Trạng (Health)</span><span class='value value-sub'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Chu Kỳ Sạc (Cycles)</span><span class='value'>%@ Lần</span></div>"
+    @"  <div class='row'><span class='label'>Dung Lượng Thiết Kế</span><span class='value'>%@ mAh</span></div>"
+    @"  <div class='row'><span class='label'>Nhiệt Độ / Điện Áp</span><span class='value'>%@ / %@</span></div>"
+    @"  <div class='row'><span class='label'>Trạng Thái Sạc</span><span class='value value-amber'>%@</span></div>"
     @"</div>"
 
     @"<!-- MẠNG NỘI BỘ -->"
@@ -301,6 +356,7 @@
     @"</html>",
     deviceName, modelName, deviceIdentifier, (unsigned long)cpuCores, osVersion, kernelVer,
     vendorUUID, jbStatus,
+    battery[@"CurrentCapacity"], battery[@"MaxCapacity"], battery[@"BatteryHealth"], battery[@"CycleCount"], battery[@"DesignCapacity"], battery[@"Temperature"], battery[@"Voltage"], battery[@"IsCharging"],
     ipv4, ipv6, timeZone, locale, uptime];
 
     [self.webView loadHTMLString:html baseURL:nil];
