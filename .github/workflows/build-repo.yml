@@ -14,7 +14,7 @@ jobs:
 
       - name: Install Theos & Tools
         run: |
-          brew install dos2unix
+          brew install dos2unix dpkg
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
           echo "THEOS=/Users/runner/theos" >> $GITHUB_ENV
           echo "/Users/runner/theos/bin" >> $GITHUB_PATH
@@ -40,7 +40,7 @@ jobs:
           dpkg-scanpackages -m ./debs > Packages
           bzip2 -f -k Packages
           gzip -f -k Packages
-
+          
           echo "Origin: ZheeDev Repo" > Release
           echo "Label: ZheeDev" >> Release
           echo "Suite: stable" >> Release
