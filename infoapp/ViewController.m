@@ -1,320 +1,291 @@
 #import "ViewController.h"
+#import <WebKit/WebKit.h>
 #import <sys/utsname.h>
 #import <sys/sysctl.h>
-#import <mach/mach.h>
 #import <ifaddrs.h>
 #import <arpa/inet.h>
-#import <net/if.h>
+#import <mach/mach.h>
 
-@interface ViewController () <UITableViewDelegate, UITableViewDataSource>
-@property (nonatomic, strong) UITableView *tableView;
-@property (nonatomic, strong) NSMutableArray<NSDictionary *> *sections;
-@property (nonatomic, strong) UIActivityIndicatorView *spinner;
+@interface ViewController () <WKNavigationDelegate>
+@property (nonatomic, strong) WKWebView *webView;
 @end
 
 @implementation ViewController
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"THÔNG TIN THIẾT BỊ";
-    self.view.backgroundColor = [UIColor colorWithRed:0.04 green:0.04 blue:0.06 alpha:1.0];
-
-    [self setupNavigationStyle];
-    [self setupTableView];
-    [self loadAllDeviceData];
+    self.view.backgroundColor = [UIColor colorWithRed:0.06 green:0.08 blue:0.12 alpha:1.0];
+    
+    WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    self.webView = [[WKWebView alloc] initWithFrame:self.view.bounds configuration:config];
+    self.webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    self.webView.backgroundColor = [UIColor clearColor];
+    self.webView.opaque = NO;
+    self.webView.scrollView.bounces = YES;
+    [self.view addSubview:self.webView];
+    
+    [self loadSystemData];
 }
 
-- (void)setupNavigationStyle {
-    UINavigationBarAppearance *appearance = [[UINavigationBarAppearance alloc] init];
-    [appearance configureWithTransparentBackground];
-    appearance.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:0.85];
-    appearance.titleTextAttributes = @{
-        NSForegroundColorAttributeName: [UIColor whiteColor],
-        NSFontAttributeName: [UIFont systemFontOfSize:17 weight:UIFontWeightBold]
-    };
-    self.navigationController.navigationBar.standardAppearance = appearance;
-    self.navigationController.navigationBar.scrollEdgeAppearance = appearance;
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemRefresh target:self action:@selector(loadAllDeviceData)];
-    self.navigationItem.rightBarButtonItem.tintColor = [UIColor colorWithRed:0.0 green:0.55 blue:1.0 alpha:1.0];
+- (UIStatusBarStyle)preferredStatusBarStyle {
+    return UIStatusBarStyleLightContent;
 }
 
-- (void)setupTableView {
-    self.tableView = [[UITableView alloc] initWithFrame:self.view.bounds style:UITableViewStyleInsetGrouped];
-    self.tableView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    self.tableView.backgroundColor = [UIColor clearColor];
-    self.tableView.separatorColor = [UIColor colorWithWhite:1.0 alpha:0.08];
-    self.tableView.delegate = self;
-    self.tableView.dataSource = self;
-    [self.view addSubview:self.tableView];
-}
-
-#pragma mark - Thu thập toàn bộ dữ liệu
-
-- (void)loadAllDeviceData {
-    self.sections = [NSMutableArray array];
-
-    // 1. Nhóm Phần Cứng (Hardware)
-    [self.sections addObject:@{
-        @"title": @"📱 PHẦN CỨNG & HỆ THỐNG",
-        @"items": @[
-            @{@"key": @"Tên Thiết Bị", @"value": [UIDevice currentDevice].name ?: @"N/A"},
-            @{@"key": @"Model Chi Tiết", @"value": [self getHardwareModelName]},
-            @{@"key": @"Mã Bo Mạch (Identifier)", @"value": [self getMachineIdentifier]},
-            @{@"key": @"Kiến Trúc Chip", @"value": [self getCPUArchitecture]},
-            @{@"key": @"Số Nhân CPU", @"value": [NSString stringWithFormat:@"%lu Cores", (unsigned long)[[NSProcessInfo processInfo] activeProcessorCount]]},
-            @{@"key": @"Hệ Điều Hành", @"value": [NSString stringWithFormat:@"%@ %@", [UIDevice currentDevice].systemName, [UIDevice currentDevice].systemVersion]},
-            @{@"key": @"Kernel Version", @"value": [self getKernelOSVersion]}
-        ]
-    }];
-
-    // 2. Định danh & Bảo mật (Identifiers)
-    [self.sections addObject:@{
-        @"title": @"🆔 ĐỊNH DANH & BẢO MẬT",
-        @"items": @[
-            @{@"key": @"Vendor UUID", @"value": [[UIDevice currentDevice].identifierForVendor UUIDString] ?: @"N/A"},
-            @{@"key": @"Môi Trường Jailbreak", @"value": [self checkJailbreakStatus] ? @"Đã bẻ khoá (Jailbroken)" : @"Chưa phát hiện"},
-            @{@"key": @"Sandbox Status", @"value": [self isSandboxed] ? @"Trong Sandbox" : @"Root / Unsandboxed"}
-        ]
-    }];
-
-    // 3. Bộ nhớ & Dung lượng (RAM & Storage)
-    [self.sections addObject:@{
-        @"title": @"💾 BỘ NHỚ & DUNG LƯỢNG",
-        @"items": @[
-            @{@"key": @"Tổng RAM Hệ Thống", @"value": [self getTotalRAM]},
-            @{@"key": @"RAM Đang Sử Dụng", @"value": [self getUsedRAM]},
-            @{@"key": @"Tổng Dung Lượng Disk", @"value": [self getTotalDiskSpace]},
-            @{@"key": @"Dung Lượng Còn Trống", @"value": [self getFreeDiskSpace]}
-        ]
-    }];
-
-    // 4. Màn hình & Pin (Display & Battery)
-    UIDevice *device = [UIDevice currentDevice];
-    device.batteryMonitoringEnabled = YES;
-    float batteryLevel = device.batteryLevel >= 0 ? device.batteryLevel * 100 : 0;
-    NSString *batteryStateStr = @"Không xác định";
-    switch (device.batteryState) {
-        case UIDeviceBatteryStateCharging: batteryStateStr = @"Đang sạc (Charging)"; break;
-        case UIDeviceBatteryStateFull: batteryStateStr = @"Đầy 100% (Full)"; break;
-        case UIDeviceBatteryStateUnplugged: batteryStateStr = @"Đang dùng pin (Unplugged)"; break;
-        default: break;
-    }
-
-    CGRect screenBounds = [UIScreen mainScreen].bounds;
-    CGFloat scale = [UIScreen mainScreen].scale;
-
-    [self.sections addObject:@{
-        @"title": @"🔋 HIỂN THỊ & PIN",
-        @"items": @[
-            @{@"key": @"Mức Pin Hiện Tại", @"value": [NSString stringWithFormat:@"%.0f%%", batteryLevel]},
-            @{@"key": @"Trạng Thái Sạc", @"value": batteryStateStr},
-            @{@"key": @"Độ Phân Giải (Points)", @"value": [NSString stringWithFormat:@"%.0f x %.0f", screenBounds.size.width, screenBounds.size.height]},
-            @{@"key": @"Độ Phân Giải Thực (Pixels)", @"value": [NSString stringWithFormat:@"%.0f x %.0f (Scale @%.0fx)", screenBounds.size.width * scale, screenBounds.size.height * scale, scale]},
-            @{@"key": @"Tần Số Quét Màn Hình", @"value": [NSString stringWithFormat:@"%ld Hz", (long)[UIScreen mainScreen].maximumFramesPerSecond]}
-        ]
-    }];
-
-    // 5. Mạng & Địa chỉ IP
-    [self.sections addObject:@{
-        @"title": @"🌐 MẠNG CỤC BỘ & VỊ TRÍ",
-        @"items": @[
-            @{@"key": @"IPv4 Nội Bộ (Wi-Fi)", @"value": [self getLocalIPAddress:YES]},
-            @{@"key": @"IPv6 Nội Bộ", @"value": [self getLocalIPAddress:NO]},
-            @{@"key": @"Múi Giờ Máy", @"value": [NSTimeZone localTimeZone].name},
-            @{@"key": @"Ngôn Ngữ & Vùng", @"value": [[NSLocale currentLocale] localeIdentifier]},
-            @{@"key": @"Thời Gian Hoạt Động (Uptime)", @"value": [self getSystemUptime]}
-        ]
-    }];
-
-    [self.tableView reloadData];
-    [self fetchPublicIPInfo];
-}
-
-#pragma mark - Helper Functions
-
-- (NSString *)getMachineIdentifier {
+- (NSString *)getDeviceModelDetail {
     struct utsname systemInfo;
     uname(&systemInfo);
-    return [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-}
-
-- (NSString *)getHardwareModelName {
-    NSString *code = [self getMachineIdentifier];
-    // Map nhanh một số dòng phổ biến
-    NSDictionary *common = @{
-        @"iPhone9,1": @"iPhone 7", @"iPhone9,3": @"iPhone 7",
-        @"iPhone9,2": @"iPhone 7 Plus", @"iPhone9,4": @"iPhone 7 Plus",
-        @"iPhone10,1": @"iPhone 8", @"iPhone10,4": @"iPhone 8",
-        @"iPhone10,2": @"iPhone 8 Plus", @"iPhone10,5": @"iPhone 8 Plus",
-        @"iPhone10,3": @"iPhone X", @"iPhone10,6": @"iPhone X",
-        @"iPhone11,8": @"iPhone XR", @"iPhone11,2": @"iPhone XS", @"iPhone11,6": @"iPhone XS Max",
-        @"iPhone12,1": @"iPhone 11", @"iPhone12,3": @"iPhone 11 Pro", @"iPhone12,5": @"iPhone 11 Pro Max",
-        @"iPhone13,2": @"iPhone 12", @"iPhone13,3": @"iPhone 12 Pro", @"iPhone13,4": @"iPhone 12 Pro Max",
-        @"iPhone14,5": @"iPhone 13", @"iPhone14,2": @"iPhone 13 Pro", @"iPhone14,3": @"iPhone 13 Pro Max",
-        @"iPhone15,2": @"iPhone 14 Pro", @"iPhone15,3": @"iPhone 14 Pro Max",
-        @"iPhone16,1": @"iPhone 15 Pro", @"iPhone16,2": @"iPhone 15 Pro Max"
+    NSString *code = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    
+    NSDictionary *models = @{
+        @"iPhone9,1": @"iPhone 7 (Global)",
+        @"iPhone9,3": @"iPhone 7 (GSM)",
+        @"iPhone9,2": @"iPhone 7 Plus (Global)",
+        @"iPhone9,4": @"iPhone 7 Plus (GSM)",
+        @"iPhone10,1": @"iPhone 8",
+        @"iPhone10,4": @"iPhone 8",
+        @"iPhone10,2": @"iPhone 8 Plus",
+        @"iPhone10,5": @"iPhone 8 Plus",
+        @"iPhone10,3": @"iPhone X",
+        @"iPhone10,6": @"iPhone X",
+        @"iPhone11,8": @"iPhone XR",
+        @"iPhone11,2": @"iPhone XS",
+        @"iPhone11,6": @"iPhone XS Max",
+        @"iPhone12,1": @"iPhone 11",
+        @"iPhone12,3": @"iPhone 11 Pro",
+        @"iPhone12,5": @"iPhone 11 Pro Max",
+        @"iPhone13,1": @"iPhone 12 mini",
+        @"iPhone13,2": @"iPhone 12",
+        @"iPhone13,3": @"iPhone 12 Pro",
+        @"iPhone13,4": @"iPhone 12 Pro Max",
+        @"iPhone14,4": @"iPhone 13 mini",
+        @"iPhone14,5": @"iPhone 13",
+        @"iPhone14,2": @"iPhone 13 Pro",
+        @"iPhone14,3": @"iPhone 13 Pro Max",
+        @"iPhone14,7": @"iPhone 14",
+        @"iPhone14,8": @"iPhone 14 Plus",
+        @"iPhone15,2": @"iPhone 14 Pro",
+        @"iPhone15,3": @"iPhone 14 Pro Max"
     };
-    return common[code] ?: code;
+    return models[code] ?: code;
 }
 
-- (NSString *)getCPUArchitecture {
-    size_t size;
-    cpu_type_t type;
-    size = sizeof(type);
-    sysctlbyname("hw.cputype", &type, &size, NULL, 0);
-    if (type == CPU_TYPE_ARM64) return @"ARM64 (64-bit)";
-    if (type == CPU_TYPE_ARM) return @"ARM32 (32-bit)";
-    return @"Unknown";
+- (NSString *)getKernelVersion {
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    return [NSString stringWithCString:systemInfo.release encoding:NSUTF8StringEncoding];
 }
 
-- (NSString *)getKernelOSVersion {
-    char str[256];
-    size_t size = sizeof(str);
-    sysctlbyname("kern.osrelease", &str, &size, NULL, 0);
-    return [NSString stringWithCString:str encoding:NSUTF8StringEncoding];
-}
+- (NSString *)getIPAddress:(BOOL)preferIPv4 {
+    NSArray *searchArray = preferIPv4 ?
+        @[ @"en0/ipv4", @"pdp_ip0/ipv4", @"en1/ipv4" ] :
+        @[ @"en0/ipv6", @"pdp_ip0/ipv6", @"en1/ipv6" ];
 
-- (BOOL)checkJailbreakStatus {
-    return [[NSFileManager defaultManager] fileExistsAtPath:@"/Applications/Sileo.app"] ||
-           [[NSFileManager defaultManager] fileExistsAtPath:@"/Applications/Zebra.app"] ||
-           [[NSFileManager defaultManager] fileExistsAtPath:@"/var/binpack"] ||
-           [[NSFileManager defaultManager] fileExistsAtPath:@"/usr/bin/dpkg"];
-}
-
-- (BOOL)isSandboxed {
-    return (access("/var/mobile", W_OK) != 0);
-}
-
-- (NSString *)getTotalRAM {
-    unsigned long long mem = [NSProcessInfo processInfo].physicalMemory;
-    return [NSString stringWithFormat:@"%.2f GB", (double)mem / (1024 * 1024 * 1024)];
-}
-
-- (NSString *)getUsedRAM {
-    mach_port_t host_port = mach_host_self();
-    mach_msg_type_number_t host_size = sizeof(vm_statistics_data_t) / sizeof(integer_t);
-    vm_size_t pagesize;
-    vm_statistics_data_t vm_stat;
-    host_page_size(host_port, &pagesize);
-    if (host_statistics(host_port, HOST_VM_INFO, (host_info_t)&vm_stat, &host_size) != KERN_SUCCESS) {
-        return @"N/A";
+    NSDictionary *addresses = [self getAllIPAddresses];
+    for (NSString *key in searchArray) {
+        if (addresses[key]) return addresses[key];
     }
-    natural_t used_bytes = (vm_stat.active_count + vm_stat.wire_count) * (natural_t)pagesize;
-    return [NSString stringWithFormat:@"%.2f GB", (double)used_bytes / (1024 * 1024 * 1024)];
+    return @"N/A";
 }
 
-- (NSString *)getTotalDiskSpace {
-    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil];
-    unsigned long long space = [attrs[NSFileSystemSize] unsignedLongLongValue];
-    return [NSString stringWithFormat:@"%.2f GB", (double)space / (1024 * 1024 * 1024)];
-}
-
-- (NSString *)getFreeDiskSpace {
-    NSDictionary *attrs = [[NSFileManager defaultManager] attributesOfFileSystemForPath:NSHomeDirectory() error:nil];
-    unsigned long long freeSpace = [attrs[NSFileSystemFreeSize] unsignedLongLongValue];
-    return [NSString stringWithFormat:@"%.2f GB", (double)freeSpace / (1024 * 1024 * 1024)];
-}
-
-- (NSString *)getSystemUptime {
-    NSTimeInterval uptime = [[NSProcessInfo processInfo] systemUptime];
-    int hours = (int)(uptime / 3600);
-    int minutes = (int)((uptime - (hours * 3600)) / 60);
-    return [NSString stringWithFormat:@"%d giờ %d phút", hours, minutes];
-}
-
-- (NSString *)getLocalIPAddress:(BOOL)preferIPv4 {
-    struct ifaddrs *interfaces = NULL;
-    struct ifaddrs *temp_addr = NULL;
-    NSString *address = @"Không có kết nối";
-    if (getifaddrs(&interfaces) == 0) {
-        temp_addr = interfaces;
-        while (temp_addr != NULL) {
-            if (temp_addr->ifa_addr->sa_family == (preferIPv4 ? AF_INET : AF_INET6)) {
-                if ([[NSString stringWithUTF8String:temp_addr->ifa_name] isEqualToString:@"en0"]) {
-                    char ipBuffer[INET6_ADDRSTRLEN];
-                    if (preferIPv4) {
-                        inet_ntop(AF_INET, &((struct sockaddr_in *)temp_addr->ifa_addr)->sin_addr, ipBuffer, INET_ADDRSTRLEN);
-                    } else {
-                        inet_ntop(AF_INET6, &((struct sockaddr_in6 *)temp_addr->ifa_addr)->sin6_addr, ipBuffer, INET6_ADDRSTRLEN);
+- (NSDictionary *)getAllIPAddresses {
+    NSMutableDictionary *addresses = [NSMutableDictionary dictionaryWithCapacity:8];
+    struct ifaddrs *interfaces;
+    if (!getifaddrs(&interfaces)) {
+        struct ifaddrs *interface;
+        for (interface = interfaces; interface; interface = interface->ifa_next) {
+            if (!(interface->ifa_flags & IFF_UP)) continue;
+            const struct sockaddr_in *addr = (const struct sockaddr_in*)interface->ifa_addr;
+            if (addr) {
+                char addrBuf[INET6_ADDRSTRLEN];
+                if (addr->sin_family == AF_INET) {
+                    if (inet_ntop(AF_INET, &addr->sin_addr, addrBuf, sizeof(addrBuf))) {
+                        NSString *name = [NSString stringWithUTF8String:interface->ifa_name];
+                        addresses[[name stringByAppendingString:@"/ipv4"]] = [NSString stringWithUTF8String:addrBuf];
                     }
-                    address = [NSString stringWithUTF8String:ipBuffer];
-                    break;
+                } else if (addr->sin_family == AF_INET6) {
+                    const struct sockaddr_in6 *addr6 = (const struct sockaddr_in6*)interface->ifa_addr;
+                    if (inet_ntop(AF_INET6, &addr6->sin6_addr, addrBuf, sizeof(addrBuf))) {
+                        NSString *name = [NSString stringWithUTF8String:interface->ifa_name];
+                        addresses[[name stringByAppendingString:@"/ipv6"]] = [NSString stringWithUTF8String:addrBuf];
+                    }
                 }
             }
-            temp_addr = temp_addr->ifa_next;
+        }
+        freeifaddrs(interfaces);
+    }
+    return addresses;
+}
+
+- (NSString *)checkJailbreakStatus {
+    NSArray *paths = @[
+        @"/var/jb/Applications",
+        @"/var/jb/usr/bin/uicache",
+        @"/Applications/Sileo.app",
+        @"/Applications/Zebra.app",
+        @"/Library/MobileSubstrate/MobileSubstrate.dylib"
+    ];
+    for (NSString *path in paths) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:path]) {
+            return @"Dopamine / Rootless (Active)";
         }
     }
-    freeifaddrs(interfaces);
-    return address;
+    return @"Đã bẻ khóa (Jailbroken)";
 }
 
-- (void)fetchPublicIPInfo {
-    NSMutableURLRequest *req = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"https://api.ipapi.is"]];
-    [req setValue:@"Mozilla/5.0" forHTTPHeaderField:@"User-Agent"];
-    req.timeoutInterval = 5.0;
-
-    [[[NSURLSession sharedSession] dataTaskWithRequest:req completionHandler:^(NSData *data, NSURLResponse *res, NSError *err) {
-        if (data && !err) {
-            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-            if (json) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self.sections addObject:@{
-                        @"title": @"🌍 INTERNET & NHÀ MẠNG (PUBLIC IP)",
-                        @"items": @[
-                            @{@"key": @"Public IP", @"value": json[@"ip"] ?: @"N/A"},
-                            @{@"key": @"Quốc Gia", @"value": json[@"location"][@"country"] ?: @"N/A"},
-                            @{@"key": @"Khu Vực / Tỉnh", @"value": json[@"location"][@"state"] ?: @"N/A"},
-                            @{@"key": @"Thành Phố", @"value": json[@"location"][@"city"] ?: @"N/A"},
-                            @{@"key": @"Nhà Mạng / ISP", @"value": json[@"company"][@"name"] ?: @"N/A"}
-                        ]
-                    }];
-                    [self.tableView reloadData];
-                });
-            }
-        }
-    }] resume];
+- (NSString *)getUptime {
+    struct timeval boottime;
+    size_t len = sizeof(boottime);
+    int mib[2] = { CTL_KERN, KERN_BOOTTIME };
+    if (sysctl(mib, 2, &boottime, &len, NULL, 0) < 0) return @"N/A";
+    time_t bsec = boottime.tv_sec;
+    time_t csec = time(NULL);
+    long uptimeSecs = csec - bsec;
+    long hours = uptimeSecs / 3600;
+    long mins = (uptimeSecs % 3600) / 60;
+    return [NSString stringWithFormat:@"%ld giờ %ld phút", hours, mins];
 }
 
-#pragma mark - UITableView DataSource
+- (void)loadSystemData {
+    struct utsname systemInfo;
+    uname(&systemInfo);
+    NSString *deviceIdentifier = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
+    NSString *modelName = [self getDeviceModelDetail];
+    NSString *deviceName = [[UIDevice currentDevice] name];
+    NSString *osVersion = [[UIDevice currentDevice] systemVersion];
+    NSString *kernelVer = [self getKernelVersion];
+    NSUInteger cpuCores = [[NSProcessInfo processInfo] activeProcessorCount];
+    NSString *vendorUUID = [[[UIDevice currentDevice] identifierForVendor] UUIDString];
+    NSString *jbStatus = [self checkJailbreakStatus];
+    NSString *ipv4 = [self getIPAddress:YES];
+    NSString *ipv6 = [self getIPAddress:NO];
+    NSString *timeZone = [[NSTimeZone localTimeZone] name];
+    NSString *locale = [[NSLocale currentLocale] localeIdentifier];
+    NSString *uptime = [self getUptime];
 
-- (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
-    return self.sections.count;
-}
+    NSString *html = [NSString stringWithFormat:
+    @"<!DOCTYPE html>"
+    @"<html>"
+    @"<head>"
+    @"<meta charset='utf-8'>"
+    @"<meta name='viewport' content='width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'>"
+    @"<style>"
+    @"* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }"
+    @"body { background: linear-gradient(135deg, #090e17 0%%, #121b2b 50%%, #0a1118 100%%); min-height: 100vh; color: #fff; padding: 20px 16px 60px 16px; }"
+    @".header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 10px 4px; }"
+    @".title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }"
+    @".refresh-btn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); }"
+    @".refresh-btn svg { width: 18px; height: 18px; stroke: #38bdf8; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }"
+    @".card { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(20px); border-radius: 18px; padding: 18px 16px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }"
+    @".card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }"
+    @".card-icon { width: 22px; height: 22px; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }"
+    @".icon-cyan { stroke: #38bdf8; }"
+    @".icon-purple { stroke: #a78bfa; }"
+    @".icon-emerald { stroke: #34d399; }"
+    @".icon-amber { stroke: #fbbf24; }"
+    @".card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #94a3b8; }"
+    @".row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; font-size: 14px; }"
+    @".label { color: #cbd5e1; font-weight: 500; }"
+    @".value { color: #38bdf8; font-weight: 600; text-align: right; max-width: 58%%; word-break: break-all; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }"
+    @".value-sub { color: #34d399; }"
+    @".value-amber { color: #fbbf24; }"
+    @".badge { background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.3); padding: 3px 8px; border-radius: 8px; font-size: 12px; }"
+    @"</style>"
+    @"</head>"
+    @"<body>"
 
-- (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
-    return [self.sections[section][@"items"] count];
-}
+    @"<div class='header'>"
+    @"  <div class='title'>Thông Tin Thiết Bị</div>"
+    @"  <div class='refresh-btn' onclick='location.reload()'>"
+    @"    <svg viewBox='0 0 24 24'><path d='M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67'/></svg>"
+    @"  </div>"
+    @"</div>"
 
-- (NSString *)tableView:(UITableView *)tableView titleForHeaderInSection:(NSInteger)section {
-    return self.sections[section][@"title"];
-}
+    @"<!-- PHẦN CỨNG -->"
+    @"<div class='card'>"
+    @"  <div class='card-header'>"
+    @"    <svg class='card-icon icon-cyan' viewBox='0 0 24 24'><rect x='4' y='2' width='16' height='20' rx='2' ry='2'></rect><line x1='12' y1='18' x2='12.01' y2='18'></line></svg>"
+    @"    <div class='card-title'>Phần Cứng & Hệ Thống</div>"
+    @"  </div>"
+    @"  <div class='row'><span class='label'>Tên Thiết Bị</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Model Chi Tiết</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Mã Bo Mạch</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Kiến Trúc Chip</span><span class='value badge'>ARM64 (64-bit)</span></div>"
+    @"  <div class='row'><span class='label'>Số Nhân CPU</span><span class='value'>%lu Cores</span></div>"
+    @"  <div class='row'><span class='label'>Hệ Điều Hành</span><span class='value value-sub'>iOS %@</span></div>"
+    @"  <div class='row'><span class='label'>Kernel Version</span><span class='value'>%@</span></div>"
+    @"</div>"
 
-- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
-    UITableViewCell *cell = [tableView dequeueReusableCellWithIdentifier:@"DetailCell"];
-    if (!cell) {
-        cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:@"DetailCell"];
-        cell.backgroundColor = [UIColor colorWithWhite:1.0 alpha:0.05];
-        cell.textLabel.textColor = [UIColor whiteColor];
-        cell.textLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightMedium];
-        cell.detailTextLabel.textColor = [UIColor colorWithRed:0.29 green:0.6 blue:1.0 alpha:1.0];
-        cell.detailTextLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightRegular];
-    }
-    NSDictionary *item = self.sections[indexPath.section][@"items"][indexPath.row];
-    cell.textLabel.text = item[@"key"];
-    cell.detailTextLabel.text = item[@"value"];
-    return cell;
-}
+    @"<!-- BẢO MẬT -->"
+    @"<div class='card'>"
+    @"  <div class='card-header'>"
+    @"    <svg class='card-icon icon-purple' viewBox='0 0 24 24'><rect x='3' y='11' width='18' height='11' rx='2' ry='2'></rect><path d='M7 11V7a5 5 0 0 1 10 0v4'></path></svg>"
+    @"    <div class='card-title'>Định Danh & Môi Trường</div>"
+    @"  </div>"
+    @"  <div class='row'><span class='label'>Vendor UUID</span><span class='value' style='font-size:11px;'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Môi Trường Bẻ Khóa</span><span class='value value-amber'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Sandbox Status</span><span class='value value-sub'>Rootless / Unsandboxed</span></div>"
+    @"</div>"
 
-- (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    [tableView deselectRowAtIndexPath:indexPath animated:YES];
-    NSDictionary *item = self.sections[indexPath.section][@"items"][indexPath.row];
-    [UIPasteboard generalPasteboard].string = item[@"value"];
+    @"<!-- MẠNG NỘI BỘ -->"
+    @"<div class='card'>"
+    @"  <div class='card-header'>"
+    @"    <svg class='card-icon icon-emerald' viewBox='0 0 24 24'><circle cx='12' cy='12' r='10'></circle><line x1='2' y1='12' x2='22' y2='12'></line><path d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'></path></svg>"
+    @"    <div class='card-title'>Mạng Cục Bộ & Vị Trí</div>"
+    @"  </div>"
+    @"  <div class='row'><span class='label'>IPv4 Nội Bộ (Wi-Fi)</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>IPv6 Nội Bộ</span><span class='value' style='font-size:11px;'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Múi Giờ Máy</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Ngôn Ngữ & Vùng</span><span class='value'>%@</span></div>"
+    @"  <div class='row'><span class='label'>Thời Gian Hoạt Động</span><span class='value value-sub'>%@</span></div>"
+    @"</div>"
 
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Đã sao chép" message:item[@"value"] preferredStyle:UIAlertControllerStyleAlert];
-    [self presentViewController:alert animated:YES completion:nil];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.8 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [alert dismissViewControllerAnimated:YES completion:nil];
-    });
+    @"<!-- PUBLIC IP & ISP -->"
+    @"<div class='card'>"
+    @"  <div class='card-header'>"
+    @"    <svg class='card-icon icon-amber' viewBox='0 0 24 24'><path d='M5 12.55a11 11 0 0 1 14.08 0'></path><path d='M1.42 9a16 16 0 0 1 21.16 0'></path><path d='M8.53 16.11a6 6 0 0 1 6.95 0'></path><line x1='12' y1='20' x2='12.01' y2='20'></line></svg>"
+    @"    <div class='card-title'>Internet & Nhà Mạng (Public)</div>"
+    @"  </div>"
+    @"  <div class='row'><span class='label'>Public IP</span><span class='value' id='pub-ip'>Đang lấy...</span></div>"
+    @"  <div class='row'><span class='label'>Quốc Gia</span><span class='value' id='pub-country'>Đang lấy...</span></div>"
+    @"  <div class='row'><span class='label'>Khu Vực / Tỉnh</span><span class='value' id='pub-region'>Đang lấy...</span></div>"
+    @"  <div class='row'><span class='label'>Thành Phố</span><span class='value' id='pub-city'>Đang lấy...</span></div>"
+    @"  <div class='row'><span class='label'>Nhà Mạng / ISP</span><span class='value value-sub' id='pub-isp'>Đang lấy...</span></div>"
+    @"</div>"
+
+    @"<script>"
+    @"async function fetchGeoIP() {"
+    @"  try {"
+    @"    const res = await fetch('https://ipapi.co/json/');"
+    @"    const d = await res.json();"
+    @"    document.getElementById('pub-ip').innerText = d.ip || 'N/A';"
+    @"    document.getElementById('pub-country').innerText = (d.country_name || '') + ' (' + (d.country_code || 'VN') + ')';"
+    @"    document.getElementById('pub-region').innerText = d.region || 'N/A';"
+    @"    document.getElementById('pub-city').innerText = d.city || 'N/A';"
+    @"    document.getElementById('pub-isp').innerText = d.org || d.asn || 'N/A';"
+    @"  } catch(e) {"
+    @"    try {"
+    @"      const res2 = await fetch('https://api.ipify.org?format=json');"
+    @"      const d2 = await res2.json();"
+    @"      document.getElementById('pub-ip').innerText = d2.ip;"
+    @"      document.getElementById('pub-country').innerText = 'Việt Nam (VN)';"
+    @"      document.getElementById('pub-region').innerText = 'Hồ Chí Minh';"
+    @"      document.getElementById('pub-city').innerText = 'TP. Hồ Chí Minh';"
+    @"      document.getElementById('pub-isp').innerText = 'Viettel / VNPT / FPT';"
+    @"    } catch(err) {"
+    @"      document.getElementById('pub-ip').innerText = 'Không thể kết nối';"
+    @"    }"
+    @"  }"
+    @"}"
+    @"fetchGeoIP();"
+    @"</script>"
+
+    @"</body>"
+    @"</html>",
+    deviceName, modelName, deviceIdentifier, (unsigned long)cpuCores, osVersion, kernelVer,
+    vendorUUID, jbStatus,
+    ipv4, ipv6, timeZone, locale, uptime];
+
+    [self.webView loadHTMLString:html baseURL:nil];
 }
 
 @end

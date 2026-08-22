@@ -1,10 +1,10 @@
 Package: com.zheedev.devicestats
 Name: Thông Tin Thiết Bị (Device Info)
 Depends: mobilesubstrate, uikittools
-Version: 1.1.0
+Version: 1.1.1
 Architecture: iphoneos-arm64
 Description: Trình phân tích & hiển thị toàn diện thông số phần cứng, hệ điều hành và mạng
 Maintainer: ZheeDev
 Author: ZheeDev
 Section: Utilities
-Tag: role::cydia, purpose::uikit, restart::springboard
+Tag: role::cydia, purpose::uikit
