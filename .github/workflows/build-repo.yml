@@ -15,17 +15,27 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Theos & Tools
+      - name: Install Tools & Dependencies
         run: |
-          brew install dos2unix dpkg
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          brew install dos2unix dpkg ldid
+
+      - name: Install Theos & Patched SDKs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone --recursive https://github.com/theos/theos.git /Users/runner/theos
           echo "THEOS=/Users/runner/theos" >> $GITHUB_ENV
           echo "/Users/runner/theos/bin" >> $GITHUB_PATH
+          
+          mkdir -p /Users/runner/theos/sdks
+          curl -fsSL https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.5.sdk.tar.xz | tar -xJ -C /Users/runner/theos/sdks/ 2>/dev/null || \
+          git clone --depth=1 https://github.com/xybp888/iOS-SDKs.git /tmp/sdks && cp -r /tmp/sdks/iPhoneOS*.sdk /Users/runner/theos/sdks/ 2>/dev/null || true
 
       - name: Build VideoApp DEB
         run: |
           cd app
           find . -type f -exec dos2unix {} +
+          chmod -R 755 layout/DEBIAN 2>/dev/null || true
           make package FINALPACKAGE=1
           mkdir -p ../debs
           cp -f packages/*.deb ../debs/

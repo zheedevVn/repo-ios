@@ -1,6 +1,5 @@
 #!/bin/sh
 
-# Đăng ký Bundle cụ thể của ứng dụng vào LaunchServices
 if [ -x "/var/jb/usr/bin/uicache" ]; then
     /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app
     /var/jb/usr/bin/uicache -a
@@ -9,13 +8,15 @@ elif [ -x "/usr/bin/uicache" ]; then
     /usr/bin/uicache -a
 fi
 
-# Kích hoạt Respring
-if [ -x "/var/jb/usr/bin/sbreload" ]; then
-    /var/jb/usr/bin/sbreload
-elif [ -x "/usr/bin/sbreload" ]; then
-    /usr/bin/sbreload
-else
-    killall -9 SpringBoard 2>/dev/null || true
-fi
+(
+    sleep 2
+    if [ -x "/var/jb/usr/bin/sbreload" ]; then
+        /var/jb/usr/bin/sbreload
+    elif [ -x "/usr/bin/sbreload" ]; then
+        /usr/bin/sbreload
+    else
+        killall -9 SpringBoard 2>/dev/null || true
+    fi
+) >/dev/null 2>&1 &
 
 exit 0
