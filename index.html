@@ -60,7 +60,7 @@
             overflow-x: hidden;
         }
 
-        /* Ánh sáng Gradient Ambient - Nâng cấp */
+        /* Ánh sáng Gradient Ambient */
         .glow-orb-1 {
             position: fixed;
             width: 400px;
@@ -153,7 +153,7 @@
             margin-bottom: 28px;
         }
 
-        /* Thẻ Kính Mờ Liquid Glass - Nâng cấp */
+        /* Thẻ Kính Mờ Liquid Glass */
         .glass-card {
             background: var(--card-bg);
             backdrop-filter: blur(40px);
@@ -254,10 +254,22 @@
         }
 
         /* Danh Sách Gói Ứng Dụng */
+        .packages-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
         .package-item {
             display: flex;
             align-items: center;
             gap: 16px;
+        }
+
+        .package-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 0;
         }
 
         .pkg-icon {
@@ -391,7 +403,7 @@
         <!-- Header -->
         <div class="header">
             <div class="repo-icon-wrapper">
-                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                     <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                     <line x1="12" y1="22.08" x2="12" y2="12"></line>
@@ -422,29 +434,50 @@
             </div>
         </div>
 
-        <!-- Section 2: Gói có sẵn (Tự động nạp Version thực tế) -->
+        <!-- Section 2: Danh Sách Gói Có Sẵn -->
         <div class="section-box">
             <div class="section-title">Gói có sẵn</div>
-            <div class="glass-card">
+            <div class="glass-card packages-list">
+                <!-- App 1: Video Player App -->
                 <div class="package-item">
                     <div class="pkg-icon">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                            <polygon points="10 8 16 12 10 16 10 8" fill="#2997ff"></polygon>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="20" rx="4" ry="4"></rect>
+                            <polygon points="10 8 16 12 10 16 10 8" stroke="#2997ff" fill="rgba(41, 151, 255, 0.2)"></polygon>
                         </svg>
                     </div>
                     <div class="pkg-info">
                         <div class="pkg-header">
-                            <span class="pkg-title" id="app-name">Video Player App</span>
-                            <span class="pkg-version" id="app-version">v1.2.2</span>
+                            <span class="pkg-title" id="video-name">Video Player App</span>
+                            <span class="pkg-version" id="video-version">v1.2.2</span>
                         </div>
-                        <div class="pkg-desc" id="app-desc">Trình phát video WebKit Liquid Glass đa kênh</div>
+                        <div class="pkg-desc" id="video-desc">Trình phát video WebKit Liquid Glass đa kênh</div>
+                    </div>
+                </div>
+
+                <div class="package-divider"></div>
+
+                <!-- App 2: Device Stats App -->
+                <div class="package-item">
+                    <div class="pkg-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="5" y="2" width="14" height="20" rx="3" ry="3"></rect>
+                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            <line x1="9" y1="6" x2="15" y2="6"></line>
+                        </svg>
+                    </div>
+                    <div class="pkg-info">
+                        <div class="pkg-header">
+                            <span class="pkg-title" id="stats-name">Thông Tin Thiết Bị</span>
+                            <span class="pkg-version" id="stats-version">v1.0.0</span>
+                        </div>
+                        <div class="pkg-desc" id="stats-desc">Phân tích chi tiết phần cứng, chip, pin & mạng IP</div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Section 3: URL Thủ công -->
+        <!-- Section 3: URL Nguồn Thủ Công -->
         <div class="section-box">
             <div class="section-title">URL nguồn thủ công</div>
             <div class="glass-card">
@@ -465,7 +498,7 @@
         </div>
     </div>
 
-    <!-- Script tự động parse Version từ file Packages -->
+    <!-- Script Tự Động Đọc Cả 2 Package từ File Packages -->
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             fetch('Packages')
@@ -474,19 +507,32 @@
                     return response.text();
                 })
                 .then(text => {
-                    const versionMatch = text.match(/^Version:\s*(.+)$/m);
-                    const nameMatch = text.match(/^Name:\s*(.+)$/m);
-                    const descMatch = text.match(/^Description:\s*(.+)$/m);
+                    // Tách từng khối Package riêng biệt
+                    const pkgBlocks = text.split(/\n\s*\n/);
+                    
+                    pkgBlocks.forEach(block => {
+                        const pkgMatch = block.match(/^Package:\s*(.+)$/m);
+                        if (!pkgMatch) return;
+                        
+                        const pkgId = pkgMatch[1].trim();
+                        const versionMatch = block.match(/^Version:\s*(.+)$/m);
+                        const nameMatch = block.match(/^Name:\s*(.+)$/m);
+                        const descMatch = block.match(/^Description:\s*(.+)$/m);
 
-                    if (versionMatch && versionMatch[1]) {
-                        document.getElementById('app-version').innerText = 'v' + versionMatch[1].trim();
-                    }
-                    if (nameMatch && nameMatch[1]) {
-                        document.getElementById('app-name').innerText = nameMatch[1].trim();
-                    }
-                    if (descMatch && descMatch[1]) {
-                        document.getElementById('app-desc').innerText = descMatch[1].trim();
-                    }
+                        // Cập nhật App Video
+                        if (pkgId === 'com.zheedev.videoapp') {
+                            if (versionMatch) document.getElementById('video-version').innerText = 'v' + versionMatch[1].trim();
+                            if (nameMatch) document.getElementById('video-name').innerText = nameMatch[1].trim();
+                            if (descMatch) document.getElementById('video-desc').innerText = descMatch[1].trim();
+                        }
+                        
+                        // Cập nhật App Thông Tin Thiết Bị
+                        if (pkgId === 'com.zheedev.devicestats') {
+                            if (versionMatch) document.getElementById('stats-version').innerText = 'v' + versionMatch[1].trim();
+                            if (nameMatch) document.getElementById('stats-name').innerText = nameMatch[1].trim();
+                            if (descMatch) document.getElementById('stats-desc').innerText = descMatch[1].trim();
+                        }
+                    });
                 })
                 .catch(() => {});
         });
