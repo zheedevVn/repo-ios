@@ -1,22 +1,10 @@
 #!/bin/sh
 
+# Đăng ký với LaunchServices
 if [ -x "/var/jb/usr/bin/uicache" ]; then
-    /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app
-    /var/jb/usr/bin/uicache -a
+    /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app -r
 elif [ -x "/usr/bin/uicache" ]; then
-    /usr/bin/uicache -p /Applications/DeviceStats.app 2>/dev/null || true
-    /usr/bin/uicache -a
+    /usr/bin/uicache -p /Applications/DeviceStats.app -r
 fi
-
-(
-    sleep 2
-    if [ -x "/var/jb/usr/bin/sbreload" ]; then
-        /var/jb/usr/bin/sbreload
-    elif [ -x "/usr/bin/sbreload" ]; then
-        /usr/bin/sbreload
-    else
-        killall -9 SpringBoard 2>/dev/null || true
-    fi
-) >/dev/null 2>&1 &
 
 exit 0

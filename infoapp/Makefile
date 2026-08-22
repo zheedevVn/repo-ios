@@ -10,5 +10,6 @@ DeviceStats_FILES = main.m AppDelegate.m ViewController.m
 DeviceStats_FRAMEWORKS = UIKit WebKit CoreTelephony SystemConfiguration
 DeviceStats_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 DeviceStats_CODESIGN_FLAGS = -Sentitlements.plist
+DeviceStats_INSTALL_PATH = /Applications
 
 include $(THEOS_MAKE_PATH)/application.mk
