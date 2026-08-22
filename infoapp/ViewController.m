@@ -7,7 +7,7 @@
 #import <net/if.h>
 #import <mach/mach.h>
 
-@interface ViewController () <WKNavigationDelegate>
+@interface ViewController () <WKNavigationDelegate, WKScriptMessageHandler>
 @property (nonatomic, strong) WKWebView *webView;
 @end
 
@@ -17,7 +17,12 @@
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor colorWithRed:0.06 green:0.08 blue:0.12 alpha:1.0];
     
+    WKUserContentController *userContentController = [[WKUserContentController alloc] init];
+    [userContentController addScriptMessageHandler:self name:@"nativeHandler"];
+    
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    config.userContentController = userContentController;
+    
     self.webView = [[WKWebView alloc] initWithFrame:self.view.bounds configuration:config];
     self.webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     self.webView.backgroundColor = [UIColor clearColor];
@@ -26,6 +31,12 @@
     [self.view addSubview:self.webView];
     
     [self loadSystemData];
+}
+
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
+    if ([message.name isEqualToString:@"nativeHandler"] && [message.body isEqualToString:@"reload"]) {
+        [self loadSystemData];
+    }
 }
 
 - (UIStatusBarStyle)preferredStatusBarStyle {
@@ -175,6 +186,7 @@
     @".header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; padding: 10px 4px; }"
     @".title { font-size: 20px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; background: linear-gradient(90deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }"
     @".refresh-btn { width: 38px; height: 38px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); }"
+    @".refresh-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.95); }"
     @".refresh-btn svg { width: 18px; height: 18px; stroke: #38bdf8; stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }"
     @".card { background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(20px); border-radius: 18px; padding: 18px 16px; margin-bottom: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }"
     @".card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }"
@@ -196,7 +208,7 @@
 
     @"<div class='header'>"
     @"  <div class='title'>Thông Tin Thiết Bị</div>"
-    @"  <div class='refresh-btn' onclick='location.reload()'>"
+    @"  <div class='refresh-btn' onclick='triggerReload()'>"
     @"    <svg viewBox='0 0 24 24'><path d='M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67'/></svg>"
     @"  </div>"
     @"</div>"
@@ -254,6 +266,11 @@
     @"</div>"
 
     @"<script>"
+    @"function triggerReload() {"
+    @"  if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nativeHandler) {"
+    @"    window.webkit.messageHandlers.nativeHandler.postMessage('reload');"
+    @"  }"
+    @"}"
     @"async function fetchGeoIP() {"
     @"  try {"
     @"    const res = await fetch('https://ipapi.co/json/');"
