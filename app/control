@@ -1,11 +1,10 @@
 Package: com.zheedev.videoapp
 Name: Ứng Dụng Xem Video
-Depends: 
+Depends: mobilesubstrate, uikittools
 Version: 1.2.2
 Architecture: iphoneos-arm64
 Description: Ứng dụng xem video trực tuyến chất lượng cao, tích hợp trình phát WebKit mượt mà.
-Maintainer: ZheeDev <email@domain.com>
+Maintainer: ZheeDev
 Author: ZheeDev
 Section: Multimedia
-Tag: role::developer, purpose::extension, cydia::essential
-Flags: respring
+Tag: role::cydia, purpose::uikit, restart::springboard
