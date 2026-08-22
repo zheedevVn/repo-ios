@@ -4,177 +4,505 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ZheeDev iOS Repository</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #000000;
-            --card-bg: #1c1c1e;
-            --card-secondary: #2c2c2e;
-            --accent-blue: #0a84ff;
-            --text-primary: #ffffff;
-            --text-secondary: #8e8e93;
-            --separator: #38383a;
+            --bg: #0a0e27;
+            --bg-secondary: #0f1535;
+            --card-bg: rgba(255, 255, 255, 0.06);
+            --card-border: rgba(255, 255, 255, 0.12);
+            --primary: #0071e3;
+            --primary-hover: #0a7fee;
+            --accent: #a855f7;
+            --accent-glow: rgba(168, 85, 247, 0.2);
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
+            --text-muted: #64748b;
+            --badge-bg: rgba(0, 113, 227, 0.15);
+            --badge-border: rgba(0, 113, 227, 0.3);
+            --success: #30d158;
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Thanh cuộn mảnh mờ */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
         body {
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, var(--bg-secondary) 100%);
+            color: var(--text-main);
             min-height: 100vh;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
-            padding: 40px 16px;
+            align-items: center;
+            padding: 32px 16px;
+            position: relative;
+            overflow-x: hidden;
         }
+
+        /* Ánh sáng Gradient Ambient - Nâng cấp */
+        .glow-orb-1 {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 113, 227, 0.15) 0%, rgba(0,0,0,0) 70%);
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(50px);
+        }
+
+        .glow-orb-2 {
+            position: fixed;
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, var(--accent-glow) 0%, rgba(0,0,0,0) 70%);
+            bottom: -100px;
+            right: 5%;
+            z-index: 0;
+            pointer-events: none;
+            filter: blur(60px);
+        }
+
         .container {
             width: 100%;
             max-width: 480px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
+            position: relative;
+            z-index: 1;
         }
+
+        /* Header Repo */
         .header {
             text-align: center;
-            padding: 10px 0;
+            margin-bottom: 36px;
         }
-        .avatar {
-            width: 72px;
-            height: 72px;
-            border-radius: 18px;
-            background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+
+        .repo-icon-wrapper {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.2) 0%, rgba(168, 85, 247, 0.1) 100%);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(0, 113, 227, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
+            box-shadow: 0 20px 50px rgba(0, 113, 227, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+            transition: all 0.3s ease;
+        }
+
+        .repo-icon-wrapper:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 30px 60px rgba(0, 113, 227, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+        }
+
+        .header h1 {
             font-size: 32px;
-            margin: 0 auto 12px;
-            box-shadow: 0 8px 24px rgba(10, 132, 255, 0.3);
+            font-weight: 900;
+            letter-spacing: -0.8px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
-        h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-        .subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
-        
-        .card {
-            background-color: var(--card-bg);
-            border-radius: 14px;
-            padding: 16px;
-            border: 1px solid var(--separator);
+
+        .header p {
+            font-size: 14px;
+            color: var(--text-sub);
+            font-weight: 500;
+            letter-spacing: 0.3px;
         }
+
+        /* Section Headings */
         .section-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            color: var(--text-muted);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            padding-left: 4px;
+            margin-bottom: 14px;
+            padding-left: 2px;
         }
+
+        .section-box {
+            margin-bottom: 28px;
+        }
+
+        /* Thẻ Kính Mờ Liquid Glass - Nâng cấp */
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.18);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        /* Nút Bấm Thêm Nguồn */
         .btn-group {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
         }
+
         .btn {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
             width: 100%;
-            padding: 14px;
-            border-radius: 12px;
+            height: 52px;
+            border-radius: 16px;
             text-decoration: none;
-            font-weight: 600;
             font-size: 15px;
-            transition: opacity 0.2s;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid transparent;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
         }
-        .btn:active { opacity: 0.7; }
-        .btn-sileo { background: linear-gradient(135deg, #2c88d9, #0056b3); color: #fff; }
-        .btn-zebra { background: #242426; color: #fff; border: 1px solid var(--separator); }
-        
-        .app-item {
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left 0.4s ease;
+            z-index: 0;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2.5;
+            position: relative;
+            z-index: 1;
+        }
+
+        .btn-sileo {
+            background: linear-gradient(135deg, #0071e3 0%, var(--accent) 100%);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 25px rgba(0, 113, 227, 0.4);
+        }
+
+        .btn-sileo:hover {
+            box-shadow: 0 12px 35px rgba(0, 113, 227, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .btn-sileo:active {
+            transform: scale(0.98);
+        }
+
+        .btn-zebra {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-zebra:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .btn-zebra:active {
+            transform: scale(0.98);
+        }
+
+        /* Danh Sách Gói Ứng Dụng */
+        .package-item {
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 10px 0;
+            gap: 16px;
         }
-        .app-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #ff375f, #ff9f0a);
+
+        .pkg-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.25) 0%, rgba(168, 85, 247, 0.15) 100%);
+            border: 1px solid rgba(0, 113, 227, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
             flex-shrink: 0;
+            box-shadow: 0 8px 20px rgba(0, 113, 227, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
         }
-        .app-info { flex: 1; min-width: 0; }
-        .app-name { font-size: 16px; font-weight: 600; }
-        .app-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .app-badge {
+
+        .package-item:hover .pkg-icon {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(0, 113, 227, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .pkg-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .pkg-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .pkg-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -0.3px;
+        }
+
+        .pkg-version {
             font-size: 11px;
-            padding: 4px 8px;
-            background: var(--card-secondary);
-            color: var(--accent-blue);
-            border-radius: 6px;
+            font-weight: 800;
+            padding: 3px 10px;
+            background: linear-gradient(135deg, rgba(0, 113, 227, 0.2) 0%, rgba(0, 113, 227, 0.1) 100%);
+            color: #0a7fee;
+            border: 1px solid rgba(0, 113, 227, 0.4);
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .pkg-desc {
+            font-size: 13px;
+            color: var(--text-sub);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 500;
+        }
+
+        /* URL Thủ Công */
+        .url-box {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0, 113, 227, 0.08);
+            border: 1px solid rgba(0, 113, 227, 0.25);
+            border-radius: 16px;
+            padding: 14px 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .url-box:hover {
+            background: rgba(0, 113, 227, 0.12);
+            border-color: rgba(0, 113, 227, 0.4);
+            box-shadow: 0 8px 20px rgba(0, 113, 227, 0.15);
+        }
+
+        .url-text {
+            font-size: 13px;
+            font-family: ui-monospace, 'JetBrains Mono', 'Fira Code', monospace;
+            color: #0a7fee;
+            user-select: all;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
             font-weight: 600;
         }
-        .url-box {
-            background-color: var(--card-secondary);
-            padding: 12px;
-            border-radius: 8px;
-            font-family: ui-monospace, monospace;
-            font-size: 13px;
-            color: var(--accent-blue);
-            word-break: break-all;
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-sub);
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            color: var(--primary);
+        }
+
+        .footer {
             text-align: center;
-            user-select: all;
+            margin-top: 32px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 500;
+            letter-spacing: 0.3px;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .repo-icon-wrapper {
+            animation: float 3s ease-in-out infinite;
         }
     </style>
 </head>
 <body>
+    <div class="glow-orb-1"></div>
+    <div class="glow-orb-2"></div>
 
-<div class="container">
-    <!-- Header -->
-    <div class="header">
-        <div class="avatar">🎬</div>
-        <h1>ZheeDev Repo</h1>
-        <div class="subtitle">Kho lưu trữ ứng dụng & tiện ích iOS Jailbreak</div>
-    </div>
-
-    <!-- Nút thêm nhanh vào Trình quản lý Tweak -->
-    <div>
-        <div class="section-title">Thêm vào thiết bị</div>
-        <div class="card btn-group">
-            <a class="btn btn-sileo" href="sileo://source/https://zheedevvn.github.io/repo-ios/">
-                <span>⚡ Thêm vào Sileo</span>
-            </a>
-            <a class="btn btn-zebra" href="zbra://sources/add/https://zheedevvn.github.io/repo-ios/">
-                <span>🦓 Thêm vào Zebra</span>
-            </a>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="repo-icon-wrapper">
+                <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+            </div>
+            <h1>ZheeDev Repo</h1>
+            <p>Kho lưu trữ ứng dụng & tiện ích iOS Jailbreak</p>
         </div>
-    </div>
 
-    <!-- Danh sách Tweak / App -->
-    <div>
-        <div class="section-title">Gói có sẵn</div>
-        <div class="card">
-            <div class="app-item">
-                <div class="app-icon">▶️</div>
-                <div class="app-info">
-                    <div class="app-name">Video Player App</div>
-                    <div class="app-desc">Ứng dụng xem video trực tuyến WebKit</div>
-                </div>
-                <div class="app-badge">v1.0.0</div>
+        <!-- Section 1: Thêm vào Trình quản lý Tweak -->
+        <div class="section-box">
+            <div class="section-title">Thêm vào thiết bị</div>
+            <div class="glass-card btn-group">
+                <a href="sileo://source/https://zheedevvn.github.io/repo-ios/" class="btn btn-sileo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    Thêm vào Sileo
+                </a>
+                <a href="zbra://sources/add/https://zheedevvn.github.io/repo-ios/" class="btn btn-zebra">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="16"></line>
+                        <line x1="8" y1="12" x2="16" y2="12"></line>
+                    </svg>
+                    Thêm vào Zebra
+                </a>
             </div>
         </div>
-    </div>
 
-    <!-- URL Thủ công -->
-    <div>
-        <div class="section-title">URL Nguồn thủ công</div>
-        <div class="card">
-            <div class="url-box">https://zheedevvn.github.io/repo-ios/</div>
+        <!-- Section 2: Gói có sẵn (Tự động nạp Version thực tế) -->
+        <div class="section-box">
+            <div class="section-title">Gói có sẵn</div>
+            <div class="glass-card">
+                <div class="package-item">
+                    <div class="pkg-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                            <polygon points="10 8 16 12 10 16 10 8" fill="#2997ff"></polygon>
+                        </svg>
+                    </div>
+                    <div class="pkg-info">
+                        <div class="pkg-header">
+                            <span class="pkg-title" id="app-name">Video Player App</span>
+                            <span class="pkg-version" id="app-version">v1.2.2</span>
+                        </div>
+                        <div class="pkg-desc" id="app-desc">Trình phát video WebKit Liquid Glass đa kênh</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: URL Thủ công -->
+        <div class="section-box">
+            <div class="section-title">URL nguồn thủ công</div>
+            <div class="glass-card">
+                <div class="url-box" onclick="copyRepoURL()">
+                    <span class="url-text" id="repo-url">https://zheedevvn.github.io/repo-ios/</span>
+                    <button class="copy-btn" title="Sao chép">
+                        <svg id="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            © 2026 ZheeDev • Powered by Liquid Glass Engine
         </div>
     </div>
-</div>
 
+    <!-- Script tự động parse Version từ file Packages -->
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            fetch('Packages')
+                .then(response => {
+                    if (!response.ok) throw new Error();
+                    return response.text();
+                })
+                .then(text => {
+                    const versionMatch = text.match(/^Version:\s*(.+)$/m);
+                    const nameMatch = text.match(/^Name:\s*(.+)$/m);
+                    const descMatch = text.match(/^Description:\s*(.+)$/m);
+
+                    if (versionMatch && versionMatch[1]) {
+                        document.getElementById('app-version').innerText = 'v' + versionMatch[1].trim();
+                    }
+                    if (nameMatch && nameMatch[1]) {
+                        document.getElementById('app-name').innerText = nameMatch[1].trim();
+                    }
+                    if (descMatch && descMatch[1]) {
+                        document.getElementById('app-desc').innerText = descMatch[1].trim();
+                    }
+                })
+                .catch(() => {});
+        });
+
+        function copyRepoURL() {
+            const urlText = document.getElementById('repo-url').innerText;
+            navigator.clipboard.writeText(urlText).then(() => {
+                const icon = document.getElementById('copy-icon');
+                icon.innerHTML = '<polyline points="20 6 9 17 4 12"></polyline>';
+                icon.setAttribute('stroke', '#30d158');
+                setTimeout(() => {
+                    icon.innerHTML = '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>';
+                    icon.setAttribute('stroke', 'currentColor');
+                }, 2000);
+            });
+        }
+    </script>
 </body>
 </html>
