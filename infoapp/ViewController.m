@@ -4,6 +4,7 @@
 #import <sys/sysctl.h>
 #import <ifaddrs.h>
 #import <arpa/inet.h>
+#import <net/if.h>
 #import <mach/mach.h>
 
 @interface ViewController () <WKNavigationDelegate>
