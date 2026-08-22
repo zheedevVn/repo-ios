@@ -1,14 +1,15 @@
 #!/bin/sh
 
-# Đăng ký ứng dụng vào hệ thống qua uicache
+# Đăng ký Bundle cụ thể của ứng dụng vào LaunchServices
 if [ -x "/var/jb/usr/bin/uicache" ]; then
     /var/jb/usr/bin/uicache -p /var/jb/Applications/DeviceStats.app
-    /var/jb/usr/bin/uicache -a -r
+    /var/jb/usr/bin/uicache -a
 elif [ -x "/usr/bin/uicache" ]; then
-    /usr/bin/uicache -p /Applications/DeviceStats.app 2>/dev/null || /usr/bin/uicache -a -r
+    /usr/bin/uicache -p /Applications/DeviceStats.app 2>/dev/null || true
+    /usr/bin/uicache -a
 fi
 
-# Tự động Respring SpringBoard
+# Kích hoạt Respring
 if [ -x "/var/jb/usr/bin/sbreload" ]; then
     /var/jb/usr/bin/sbreload
 elif [ -x "/usr/bin/sbreload" ]; then
